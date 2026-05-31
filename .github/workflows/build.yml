@@ -64,33 +64,6 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      # TEMPORARY: diagnose the updater signing secrets. Safe — GitHub masks the
-      # secret values (they print as ***); this only reveals lengths and whether
-      # the key+password actually decrypt/sign. Remove once the release is green.
-      - name: 'DEBUG: verify signing secrets (temporary)'
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          echo "PRIVATE_KEY length: ${#TAURI_SIGNING_PRIVATE_KEY}  (expected 348)"
-          echo "PASSWORD    length: ${#TAURI_SIGNING_PRIVATE_KEY_PASSWORD}  (expected 12)"
-          case "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" in
-            \"*\") echo "PASSWORD: has surrounding quotes  <-- BAD (remove the quotes)" ;;
-            *)     echo "PASSWORD: no surrounding quotes (good)" ;;
-          esac
-          case "$TAURI_SIGNING_PRIVATE_KEY" in
-            dW50cnVzdGVk*) echo "PRIVATE_KEY: correct prefix (good)" ;;
-            *)             echo "PRIVATE_KEY: wrong start  <-- BAD (quotes, newline, or wrong/old key)" ;;
-          esac
-          echo "--- live sign test (same path the real build uses) ---"
-          echo probe > _sig_probe.txt
-          if bun run tauri signer sign _sig_probe.txt; then
-            echo "RESULT: SIGN OK -- key + password match; the build should sign fine"
-          else
-            echo "RESULT: SIGN FAILED -- the key/password pair in Repository secrets is wrong"
-          fi
-
       - name: Lint code
         run: bun run lint
 
@@ -113,6 +86,7 @@ jobs:
         id: tauri
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BP_TIMER_ENDPOINT: ${{ secrets.BP_TIMER_ENDPOINT }}
           BP_TIMER_API_KEY: ${{ secrets.BP_TIMER_API_KEY }}
