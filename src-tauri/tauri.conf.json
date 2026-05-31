@@ -47,7 +47,7 @@
 	},
 	"plugins": {
 		"updater": {
-			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1MzA0RUUzMEQ4NkE2MwpSV1JqYXRndzdnUlRER1N3UWxGR2l0YzVmOHdkbWpxSjVoYUlkODAvNlArSnhTUllGZUc0Y1phQwo=",
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE3MkFDRjlERDAxQjcyOEMKUldTTWNodlFuYzhxRjdkUHJkVGUyeVcvSFM3dU1KNFUyNVhzaVJERkhLenNIRExXcjgydndqSXAK",
 			"endpoints": [
 				"https://github.com/saptia14/bpsr-logs-demon-soul/releases/latest/download/latest.json"
 			],
