@@ -31,7 +31,6 @@
 		"@tauri-apps/plugin-updater": "^2.10.1",
 		"@tauri-store/svelte": "^3.2.0",
 		"html2canvas-pro": "^2.0.2",
-		"tauri": "^0.15.0",
 		"tippy.js": "^6.3.7"
 	},
 	"devDependencies": {
