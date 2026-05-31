@@ -1,0 +1,37 @@
+# --- OS / editor cruft ---
+.DS_Store
+/.vscode
+/.idea
+*.swp
+
+# --- Dependencies ---
+node_modules
+# Lockfile policy: this project uses bun (bun.lock is committed); the npm lockfile is not.
+package-lock.json
+
+# --- Frontend build output ---
+/build
+/.svelte-kit
+/package
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# --- Rust / Tauri build output ---
+/target/
+/src-tauri/target/
+/src-tauri/target-verify/
+/src-tauri/2
+/.tauri
+# Tauri-generated capability schemas (regenerated on build)
+/gen/schemas
+
+# --- Secrets / environment ---
+.env
+.env.*
+!.env.example
+
+# --- Local-only docs & reference material (not needed to build or run the app) ---
+/artifacts
+/raw-game-files
+/StarResonanceAutoMod_Release_*/
+/BPSR-ZDPS-*/

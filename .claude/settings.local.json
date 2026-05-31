@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check *)",
+      "Bash(npm run *)",
+      "PowerShell(foreach \\($t in 'bun','cargo','rustc','node','npm'\\) { $c = Get-Command $t -ErrorAction SilentlyContinue; if \\($c\\) { \"{0,-6} {1}\" -f $t, \\(& $t --version 2>$null | Select-Object -First 1\\) } else { \"{0,-6} NOT FOUND\" -f $t } })",
+      "Bash(npx svelte-check *)",
+      "Bash(xxd)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(cargo test *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(sc.exe stop windivert 2>&1 | Out-String; Start-Sleep -Milliseconds 800; sc.exe delete windivert 2>&1 | Out-String; \"---\"; sc.exe query windivert 2>&1 | Out-String)",
+      "PowerShell(cargo test *)",
+      "PowerShell(cargo check *)",
+      "Bash(gh auth *)",
+      "Bash(find .github -type f)",
+      "Bash(cut -d= -f1 .env)",
+      "Bash(git init *)",
+      "Bash(git check-ignore *)",
+      "Bash(git add *)",
+      "Bash(xargs -0 ls -la)",
+      "Bash(awk '$5 > 300000 {printf \"%8.1fKB  %s\\\\n\", $5/1024, $9}')"
+    ]
+  }
+}

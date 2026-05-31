@@ -1,0 +1,59 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "DemonSoul - ZDPS Meter",
+	"version": "0.25.0",
+	"identifier": "com.bpsr-logs",
+	"build": {
+		"beforeDevCommand": "npm run dev",
+		"beforeBuildCommand": "npm run build",
+		"devUrl": "http://localhost:1420",
+		"frontendDist": "../build"
+	},
+	"app": {
+		"windows": [
+			{
+				"title": "DemonSoul - ZDPS Meter",
+				"label": "live",
+				"url": "/",
+				"shadow": false,
+				"decorations": false,
+				"transparent": true,
+				"minWidth": 400,
+				"minHeight": 120,
+				"alwaysOnTop": true,
+				"skipTaskbar": true
+			}
+		],
+		"security": {
+			"csp": null
+		}
+	},
+	"bundle": {
+		"active": true,
+		"copyright": "GNU General Public License v3.0",
+		"targets": "all",
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"resources": [
+			"./WinDivert.dll",
+			"./WinDivert64.sys"
+		],
+		"createUpdaterArtifacts": true
+	},
+	"plugins": {
+		"updater": {
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1MzA0RUUzMEQ4NkE2MwpSV1JqYXRndzdnUlRER1N3UWxGR2l0YzVmOHdkbWpxSjVoYUlkODAvNlArSnhTUllGZUc0Y1phQwo=",
+			"endpoints": [
+				"https://github.com/saptia14/bpsr-logs-demon-soul/releases/latest/download/latest.json"
+			],
+			"windows": {
+				"installMode": "basicUi"
+			}
+		}
+	}
+}

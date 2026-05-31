@@ -1,0 +1,113 @@
+name: 'publish'
+
+on: push
+
+# This workflow will trigger on each push to the `release` branch to create or update a GitHub release, build your app, and upload the artifacts to the release.
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.6'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        run: |
+          $protocVersion = "33.4"
+          $protocUrl = "https://github.com/protocolbuffers/protobuf/releases/download/v$protocVersion/protoc-$protocVersion-win64.zip"
+          $protocZip = "$env:TEMP\protoc.zip"
+          $protocDir = "$env:TEMP\protoc"
+          Write-Host "Downloading protoc from $protocUrl"
+          Invoke-WebRequest -Uri $protocUrl -OutFile $protocZip
+          Expand-Archive -Path $protocZip -DestinationPath $protocDir -Force
+          $protocPath = "$protocDir\bin\protoc.exe"
+          if (Test-Path $protocPath) {
+            echo "$protocDir\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            echo "PROTOC=$protocPath" >> $env:GITHUB_ENV
+            Write-Host "protoc installed successfully"
+          } else {
+            Write-Error "protoc.exe not found after extraction"
+            exit 1
+          }
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint code
+        run: bun run lint
+
+      - name: Type check
+        run: bun run check
+
+      - name: Read changelog
+        run: |
+          @(
+          'RELEASE_BODY<<EOF'
+          '# Changelog'
+          (git log -1 --pretty=%B | Select-Object -Skip 1)
+          ''
+          (Get-Content .github/workflows/RELEASE.md)
+          'EOF'
+          ) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: build and release tauri-apps
+        uses: tauri-apps/tauri-action@v0
+        id: tauri
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BP_TIMER_ENDPOINT: ${{ secrets.BP_TIMER_ENDPOINT }}
+          BP_TIMER_API_KEY: ${{ secrets.BP_TIMER_API_KEY }}
+        with:
+          tagName: ${{ github.ref_name == 'release' && 'app-v__VERSION__' || '' }} # the action automatically replaces \_\_VERSION\_\_ with the app version.
+          includeDebug: ${{ github.ref_name != 'release' }}
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: false
+          releaseName: ${{ github.ref_name == 'release' && 'v__VERSION__' || '' }}
+          releaseBody: ${{ env.RELEASE_BODY }}
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpsr-logs-production-v${{ steps.tauri.outputs.appVersion }}
+          path: src-tauri/target/release/bundle/
+
+      - name: Upload Debug Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpsr-logs-debug-v${{ steps.tauri.outputs.appVersion }}
+          path: src-tauri/target/debug/bundle/
