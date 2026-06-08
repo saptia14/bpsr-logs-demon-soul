@@ -30,6 +30,9 @@ vite.config.ts.timestamp-*
 .env.*
 !.env.example
 
+# --- Claude Code agent memory (internal notes, not project source) ---
+memory/
+
 # --- Updater signing keys (NEVER commit the private key) ---
 *.key
 *.key.pub

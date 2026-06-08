@@ -33,28 +33,133 @@ pub struct AttrDef {
 /// must stay stable.
 pub const ATTRS: [AttrDef; NUM_ATTRS] = [
     // --- basic (slots 0..=12) ---
-    AttrDef { id: 1110, name: "Strength Boost", name_cn: "力量加持", special: false },
-    AttrDef { id: 1111, name: "Agility Boost", name_cn: "敏捷加持", special: false },
-    AttrDef { id: 1112, name: "Intellect Boost", name_cn: "智力加持", special: false },
-    AttrDef { id: 1113, name: "Special Attack", name_cn: "特攻伤害", special: false },
-    AttrDef { id: 1114, name: "Elite Strike", name_cn: "精英打击", special: false },
-    AttrDef { id: 1205, name: "Healing Boost", name_cn: "特攻治疗加持", special: false },
-    AttrDef { id: 1206, name: "Healing Enhance", name_cn: "专精治疗加持", special: false },
-    AttrDef { id: 1307, name: "Resistance", name_cn: "抵御魔法", special: false },
-    AttrDef { id: 1308, name: "Armor", name_cn: "抵御物理", special: false },
-    AttrDef { id: 1407, name: "Cast Focus", name_cn: "施法专注", special: false },
-    AttrDef { id: 1408, name: "Attack SPD", name_cn: "攻速专注", special: false },
-    AttrDef { id: 1409, name: "Crit Focus", name_cn: "暴击专注", special: false },
-    AttrDef { id: 1410, name: "Luck Focus", name_cn: "幸运专注", special: false },
+    AttrDef {
+        id: 1110,
+        name: "Strength Boost",
+        name_cn: "力量加持",
+        special: false,
+    },
+    AttrDef {
+        id: 1111,
+        name: "Agility Boost",
+        name_cn: "敏捷加持",
+        special: false,
+    },
+    AttrDef {
+        id: 1112,
+        name: "Intellect Boost",
+        name_cn: "智力加持",
+        special: false,
+    },
+    AttrDef {
+        id: 1113,
+        name: "Special Attack",
+        name_cn: "特攻伤害",
+        special: false,
+    },
+    AttrDef {
+        id: 1114,
+        name: "Elite Strike",
+        name_cn: "精英打击",
+        special: false,
+    },
+    AttrDef {
+        id: 1205,
+        name: "Healing Boost",
+        name_cn: "特攻治疗加持",
+        special: false,
+    },
+    AttrDef {
+        id: 1206,
+        name: "Healing Enhance",
+        name_cn: "专精治疗加持",
+        special: false,
+    },
+    AttrDef {
+        id: 1307,
+        name: "Resistance",
+        name_cn: "抵御魔法",
+        special: false,
+    },
+    AttrDef {
+        id: 1308,
+        name: "Armor",
+        name_cn: "抵御物理",
+        special: false,
+    },
+    AttrDef {
+        id: 1407,
+        name: "Cast Focus",
+        name_cn: "施法专注",
+        special: false,
+    },
+    AttrDef {
+        id: 1408,
+        name: "Attack SPD",
+        name_cn: "攻速专注",
+        special: false,
+    },
+    AttrDef {
+        id: 1409,
+        name: "Crit Focus",
+        name_cn: "暴击专注",
+        special: false,
+    },
+    AttrDef {
+        id: 1410,
+        name: "Luck Focus",
+        name_cn: "幸运专注",
+        special: false,
+    },
     // --- special "极-" (slots 13..=20) ---
-    AttrDef { id: 2104, name: "DMG Stack", name_cn: "极-伤害叠加", special: true },
-    AttrDef { id: 2105, name: "Agile", name_cn: "极-灵活身法", special: true },
-    AttrDef { id: 2204, name: "Life Condense", name_cn: "极-生命凝聚", special: true },
-    AttrDef { id: 2205, name: "First Aid", name_cn: "极-急救措施", special: true },
-    AttrDef { id: 2304, name: "Final Protection", name_cn: "极-绝境守护", special: true },
-    AttrDef { id: 2404, name: "Life Wave", name_cn: "极-生命波动", special: true },
-    AttrDef { id: 2405, name: "Life Steal", name_cn: "极-生命汲取", special: true },
-    AttrDef { id: 2406, name: "Team Luck&Crit", name_cn: "极-全队幸暴", special: true },
+    AttrDef {
+        id: 2104,
+        name: "DMG Stack",
+        name_cn: "极-伤害叠加",
+        special: true,
+    },
+    AttrDef {
+        id: 2105,
+        name: "Agile",
+        name_cn: "极-灵活身法",
+        special: true,
+    },
+    AttrDef {
+        id: 2204,
+        name: "Life Condense",
+        name_cn: "极-生命凝聚",
+        special: true,
+    },
+    AttrDef {
+        id: 2205,
+        name: "First Aid",
+        name_cn: "极-急救措施",
+        special: true,
+    },
+    AttrDef {
+        id: 2304,
+        name: "Final Protection",
+        name_cn: "极-绝境守护",
+        special: true,
+    },
+    AttrDef {
+        id: 2404,
+        name: "Life Wave",
+        name_cn: "极-生命波动",
+        special: true,
+    },
+    AttrDef {
+        id: 2405,
+        name: "Life Steal",
+        name_cn: "极-生命汲取",
+        special: true,
+    },
+    AttrDef {
+        id: 2406,
+        name: "Team Luck&Crit",
+        name_cn: "极-全队幸暴",
+        special: true,
+    },
 ];
 
 /// Map an attribute id to its canonical slot index, if it is a known attribute.
@@ -113,15 +218,24 @@ fn name_and_category(config_id: i32) -> (String, ModuleCategory) {
         5500101 => ("Basic Attack Module", ModuleCategory::Attack),
         5500102 => ("Advanced Attack Module", ModuleCategory::Attack),
         5500103 => ("Excellent Attack Module", ModuleCategory::Attack),
-        5500104 => ("Excellent Attack Module (Preferred)", ModuleCategory::Attack),
+        5500104 => (
+            "Excellent Attack Module (Preferred)",
+            ModuleCategory::Attack,
+        ),
         5500201 => ("Basic Healing Module", ModuleCategory::Support),
         5500202 => ("Advanced Healing Module", ModuleCategory::Support),
         5500203 => ("Excellent Support Module", ModuleCategory::Support),
-        5500204 => ("Excellent Support Module (Preferred)", ModuleCategory::Support),
+        5500204 => (
+            "Excellent Support Module (Preferred)",
+            ModuleCategory::Support,
+        ),
         5500301 => ("Basic Guard Module", ModuleCategory::Guardian),
         5500302 => ("Advanced Guard Module", ModuleCategory::Guardian),
         5500303 => ("Excellent Guard Module", ModuleCategory::Guardian),
-        5500304 => ("Excellent Guard Module (Preferred)", ModuleCategory::Guardian),
+        5500304 => (
+            "Excellent Guard Module (Preferred)",
+            ModuleCategory::Guardian,
+        ),
         other => {
             let category = match (other / 100) % 10 {
                 2 => ModuleCategory::Support,
@@ -202,7 +316,9 @@ pub fn parse_modules(sync_data: &SyncContainerData) -> Vec<ModuleInfo> {
 
             let mod_parts = &mod_new_attr.mod_parts;
             let empty = Vec::new();
-            let init_link_nums = mod_infos.get(&item_key).map_or(&empty, |mi| &mi.init_link_nums);
+            let init_link_nums = mod_infos
+                .get(&item_key)
+                .map_or(&empty, |mi| &mi.init_link_nums);
             let n = mod_parts.len().min(init_link_nums.len());
 
             let mut parts = Vec::with_capacity(n);

@@ -3,6 +3,9 @@ pub const SERVICE_UUID: u64 = 0x63335342;
 /// SocialNtf (scene line / map via NotifySocialData)
 pub const SOCIAL_NTF_SERVICE_ID: u64 = 0x254C89A3;
 pub const SOCIAL_NTF_NOTIFY_METHOD_ID: u32 = 1;
+/// ChitChatNtf (chat messages via NotifyNewestChitChatMsgs). 164931432 == ZDPS EServiceId.ChitChatNtf (0x09D4A768).
+pub const CHIT_CHAT_NTF_SERVICE_ID: u64 = 164_931_432;
+pub const CHIT_CHAT_NOTIFY_METHOD_ID: u32 = 1;
 
 pub mod packet {
     pub const COMPRESSION_FLAG: u16 = 0x8000;

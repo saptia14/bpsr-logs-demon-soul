@@ -90,6 +90,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BP_TIMER_ENDPOINT: ${{ secrets.BP_TIMER_ENDPOINT }}
           BP_TIMER_API_KEY: ${{ secrets.BP_TIMER_API_KEY }}
+          # Guild-chat dedupe relay key, baked into release binaries (compile-time
+          # option_env!). Add BPSR_DEDUPE_API_KEY as a repo secret for releases.
+          BPSR_DEDUPE_API_KEY: ${{ secrets.BPSR_DEDUPE_API_KEY }}
         with:
           tagName: ${{ github.ref_name == 'release' && 'app-v__VERSION__' || '' }} # the action automatically replaces \_\_VERSION\_\_ with the app version.
           includeDebug: ${{ github.ref_name != 'release' }}

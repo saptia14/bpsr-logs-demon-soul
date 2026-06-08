@@ -1,3 +1,4 @@
+use crate::utils::sync::MutexExt;
 use log::{error, info, warn};
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::{self, Sender};
@@ -76,23 +77,23 @@ static LOCATION_TRACKED_MOBS: LazyLock<Mutex<HashSet<u32>>> = LazyLock::new(|| {
 });
 
 fn get_mob_name(mob_id: u32) -> Option<String> {
-    MOB_MAPPING.lock().unwrap().get(&mob_id).cloned()
+    MOB_MAPPING.lock_safe().get(&mob_id).cloned()
 }
 
 fn is_location_tracked_mob(mob_id: u32) -> bool {
-    LOCATION_TRACKED_MOBS.lock().unwrap().contains(&mob_id)
+    LOCATION_TRACKED_MOBS.lock_safe().contains(&mob_id)
 }
 
 fn is_mob_tracked(mob_id: u32) -> bool {
-    MOB_MAPPING.lock().unwrap().contains_key(&mob_id)
+    MOB_MAPPING.lock_safe().contains_key(&mob_id)
 }
 
 fn set_mob_mapping(mapping: HashMap<u32, String>) {
-    *MOB_MAPPING.lock().unwrap() = mapping;
+    *MOB_MAPPING.lock_safe() = mapping;
 }
 
 fn set_location_tracked_mobs(mobs: HashSet<u32>) {
-    *LOCATION_TRACKED_MOBS.lock().unwrap() = mobs;
+    *LOCATION_TRACKED_MOBS.lock_safe() = mobs;
 }
 
 struct HpReportTask {
@@ -162,7 +163,7 @@ fn get_hp_report_sender() -> &'static Sender<HpReportTask> {
                 }
 
                 // Update cache on both success and error to prevent spam retries
-                let mut cache = HP_REPORT_CACHE.lock().unwrap();
+                let mut cache = HP_REPORT_CACHE.lock_safe();
                 if let Some(entry) = cache.get_mut(&task.cache_key) {
                     entry.last_reported_hp = Some(task.rounded_hp_pct);
                     entry.is_pending = false;
@@ -240,7 +241,7 @@ impl BPTimerClient {
 
         // Check cache
         let should_report = {
-            let mut cache = HP_REPORT_CACHE.lock().unwrap();
+            let mut cache = HP_REPORT_CACHE.lock_safe();
             let entry = cache
                 .entry(cache_key.clone())
                 .or_insert_with(|| CacheEntry {
@@ -301,7 +302,7 @@ impl BPTimerClient {
             if let Err(e) = get_hp_report_sender().send(task) {
                 error!("Failed to queue HP report: {e}");
                 //  Worker thread died - reset cache to prevent blocking future reports
-                let mut cache = HP_REPORT_CACHE.lock().unwrap();
+                let mut cache = HP_REPORT_CACHE.lock_safe();
                 if let Some(entry) = cache.get_mut(&cache_key) {
                     entry.last_reported_hp = Some(rounded_hp_pct);
                     entry.is_pending = false;

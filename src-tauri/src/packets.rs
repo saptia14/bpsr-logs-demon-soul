@@ -3,4 +3,5 @@
 pub mod opcodes;
 pub mod packet_capture;
 mod packet_process;
+pub mod tcp_table;
 pub mod utils;

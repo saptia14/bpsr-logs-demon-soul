@@ -81,8 +81,10 @@ struct SceneData {
 
 pub static SCENE_NAMES: LazyLock<HashMap<u32, String>> = LazyLock::new(|| {
     let data = include_str!("../../../src/lib/data/json/SceneTable.json");
-    let parsed: HashMap<String, SceneData> = serde_json::from_str(data).expect("invalid SceneTable.json");
-    parsed.into_iter()
+    let parsed: HashMap<String, SceneData> =
+        serde_json::from_str(data).expect("invalid SceneTable.json");
+    parsed
+        .into_iter()
         .filter_map(|(k, v)| k.parse::<u32>().ok().map(|id| (id, v.name)))
         .collect()
 });
@@ -101,6 +103,7 @@ pub mod class {
     pub enum Class {
         Stormblade,
         FrostMage,
+        TwinStriker,
         WindKnight,
         VerdantOracle,
         HeavyGuardian,
@@ -117,6 +120,7 @@ pub mod class {
             match class_id {
                 1 => Class::Stormblade,
                 2 => Class::FrostMage,
+                3 => Class::TwinStriker,
                 4 => Class::WindKnight,
                 5 => Class::VerdantOracle,
                 9 => Class::HeavyGuardian,
@@ -132,6 +136,7 @@ pub mod class {
         String::from(match class {
             Class::Stormblade => "Stormblade",
             Class::FrostMage => "Frost Mage",
+            Class::TwinStriker => "Twin Striker",
             Class::WindKnight => "Wind Knight",
             Class::VerdantOracle => "Verdant Oracle",
             Class::HeavyGuardian => "Heavy Guardian",
@@ -151,6 +156,9 @@ pub mod class {
         // Frost Mage
         Icicle,
         Frostbeam,
+        // Twin Striker
+        Formless,
+        Crimson,
         // Wind Knight
         Vanguard,
         Skyward,
@@ -179,6 +187,8 @@ pub mod class {
             44701 | 179906 => ClassSpec::Moonstrike,
             120901 | 120902 => ClassSpec::Icicle,
             1241 => ClassSpec::Frostbeam,
+            35107 | 35108 | 35109 | 160102 => ClassSpec::Formless,
+            1606 | 1621 | 1622 | 1623 => ClassSpec::Crimson,
             1405 | 1418 => ClassSpec::Vanguard,
             1419 => ClassSpec::Skyward,
             1518 | 1541 | 21402 => ClassSpec::Smite,
@@ -199,6 +209,7 @@ pub mod class {
         match class_spec {
             ClassSpec::Iaido | ClassSpec::Moonstrike => Class::Stormblade,
             ClassSpec::Icicle | ClassSpec::Frostbeam => Class::FrostMage,
+            ClassSpec::Formless | ClassSpec::Crimson => Class::TwinStriker,
             ClassSpec::Vanguard | ClassSpec::Skyward => Class::WindKnight,
             ClassSpec::Smite | ClassSpec::Lifebind => Class::VerdantOracle,
             ClassSpec::Earthfort | ClassSpec::Block => Class::HeavyGuardian,
@@ -216,6 +227,8 @@ pub mod class {
             ClassSpec::Moonstrike => "Moonstrike",
             ClassSpec::Icicle => "Icicle",
             ClassSpec::Frostbeam => "Frostbeam",
+            ClassSpec::Formless => "Formless",
+            ClassSpec::Crimson => "Crimson",
             ClassSpec::Vanguard => "Vanguard",
             ClassSpec::Skyward => "Skyward",
             ClassSpec::Smite => "Smite",

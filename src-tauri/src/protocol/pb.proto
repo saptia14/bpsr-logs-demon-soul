@@ -77,6 +77,34 @@ message NotifySocialData { NotifySocialDataRequest v_request = 1; }
 
 message NotifySocialDataRequest { SocialData data = 1; }
 
+// --- Chat (ChitChatNtf service, method NotifyNewestChitChatMsgs) ---
+// Enums (channel_type / msg_type) are decoded as int32 to avoid enum codegen.
+message NotifyNewestChitChatMsgs { NotifyNewestChitChatMsgsRequest v_request = 1; }
+
+message NotifyNewestChitChatMsgsRequest {
+  int32 channel_type = 1; // ChitChatChannelType: World=1 Local/Scene=2 Team=3 Union=4 Private=5 Group=6 System=99
+  ChitChatMsg chat_msg = 2;
+}
+
+message ChitChatMsg {
+  int64 msg_id = 1;              // game id (per channel+session); used for the idempotency key
+  BasicShowInfo send_char_info = 2;
+  int64 timestamp = 3;          // unix seconds
+  ChatMsgInfo msg_info = 4;
+}
+
+message ChatMsgInfo {
+  int32 msg_type = 1;           // ChitChatMsgType: text=0 (others: notice/multilang/emoji/picture/voice/hypertext)
+  int64 target_id = 2;
+  string msg_text = 3;
+}
+
+message BasicShowInfo {
+  int64 char_id = 1;
+  string name = 2;
+  int32 level = 5;
+}
+
 message Package { map<int64, Item> items = 4; }
 
 message ProfessionList { int32 cur_profession_id = 1; }

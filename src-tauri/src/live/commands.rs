@@ -2,6 +2,7 @@ use crate::live::bptimer_state::{
     BPTimerEnabledMutex, set_bptimer_enabled as update_bptimer_state,
 };
 use crate::live::commands_models::{HeaderInfo, PlayerRow, PlayersWindow, SkillRow, SkillsWindow};
+use crate::live::database::{self, DatabaseMutex, EncounterDetail, EncounterSummary};
 use crate::live::module_optimizer::{ModuleSolution, ModulesMutex, OptimizeRequest, optimize};
 use crate::live::opcodes_models::class::{Class, ClassSpec};
 use crate::live::opcodes_models::{CombatStats, Encounter, EncounterMutex, class};
@@ -9,6 +10,7 @@ use crate::live::player_state::{PlayerCacheMutex, PlayerStateMutex};
 use crate::packets::packet_capture::request_restart;
 use crate::protocol::pb::EEntityType;
 use crate::utils::modules::{AttrMeta, ModuleInfo, attribute_list};
+use crate::utils::sync::MutexExt;
 use log::info;
 use std::sync::MutexGuard;
 
@@ -23,7 +25,7 @@ fn nan_is_zero(value: f64) -> f64 {
 #[tauri::command]
 #[specta::specta]
 pub fn get_header_info(state: tauri::State<'_, EncounterMutex>) -> HeaderInfo {
-    let encounter = state.lock().unwrap();
+    let encounter = state.lock_safe();
     if encounter.dmg_stats.value == 0 {
         return HeaderInfo {
             total_dps: 0.0,
@@ -53,10 +55,23 @@ pub fn hard_reset(
     player_cache_state: tauri::State<'_, PlayerCacheMutex>,
     player_state: tauri::State<'_, crate::live::player_state::PlayerStateMutex>,
     webhook_state: tauri::State<'_, crate::live::webhook_state::WebhookEnabledMutex>,
+    db: tauri::State<'_, DatabaseMutex>,
 ) {
-    let mut encounter = state.lock().unwrap();
+    let mut encounter = state.lock_safe();
 
-    crate::live::webhook::submit_report(&encounter, &player_cache_state, &player_state, &webhook_state, None);
+    database::save_encounter(
+        &db,
+        &encounter,
+        &player_cache_state.lock_safe(),
+        &player_state.lock_safe(),
+    );
+    crate::live::webhook::submit_report(
+        &encounter,
+        &player_cache_state,
+        &player_state,
+        &webhook_state,
+        None,
+    );
 
     encounter.clone_from(&Encounter::default());
     request_restart();
@@ -72,9 +87,15 @@ pub fn submit_pending_webhook(
     webhook_state: tauri::State<'_, crate::live::webhook_state::WebhookEnabledMutex>,
     image: Vec<u8>,
 ) {
-    let mut pending = pending_state.lock().unwrap();
+    let mut pending = pending_state.lock_safe();
     if let Some(encounter) = pending.take() {
-        crate::live::webhook::submit_report(&encounter, &player_cache_state, &player_state, &webhook_state, Some(image));
+        crate::live::webhook::submit_report(
+            &encounter,
+            &player_cache_state,
+            &player_state,
+            &webhook_state,
+            Some(image),
+        );
     }
 }
 
@@ -85,11 +106,24 @@ pub fn reset_encounter_with_image(
     player_cache_state: tauri::State<'_, PlayerCacheMutex>,
     player_state: tauri::State<'_, crate::live::player_state::PlayerStateMutex>,
     webhook_state: tauri::State<'_, crate::live::webhook_state::WebhookEnabledMutex>,
+    db: tauri::State<'_, DatabaseMutex>,
     image: Vec<u8>,
 ) {
-    let mut encounter = state.lock().unwrap();
+    let mut encounter = state.lock_safe();
 
-    crate::live::webhook::submit_report(&encounter, &player_cache_state, &player_state, &webhook_state, Some(image));
+    database::save_encounter(
+        &db,
+        &encounter,
+        &player_cache_state.lock_safe(),
+        &player_state.lock_safe(),
+    );
+    crate::live::webhook::submit_report(
+        &encounter,
+        &player_cache_state,
+        &player_state,
+        &webhook_state,
+        Some(image),
+    );
 
     encounter.clone_from(&Encounter::default());
     info!("encounter reset with image");
@@ -102,10 +136,23 @@ pub fn reset_encounter(
     player_cache_state: tauri::State<'_, PlayerCacheMutex>,
     player_state: tauri::State<'_, crate::live::player_state::PlayerStateMutex>,
     webhook_state: tauri::State<'_, crate::live::webhook_state::WebhookEnabledMutex>,
+    db: tauri::State<'_, DatabaseMutex>,
 ) {
-    let mut encounter = state.lock().unwrap();
+    let mut encounter = state.lock_safe();
 
-    crate::live::webhook::submit_report(&encounter, &player_cache_state, &player_state, &webhook_state, None);
+    database::save_encounter(
+        &db,
+        &encounter,
+        &player_cache_state.lock_safe(),
+        &player_state.lock_safe(),
+    );
+    crate::live::webhook::submit_report(
+        &encounter,
+        &player_cache_state,
+        &player_state,
+        &webhook_state,
+        None,
+    );
 
     encounter.clone_from(&Encounter::default());
     info!("encounter reset");
@@ -114,7 +161,7 @@ pub fn reset_encounter(
 #[tauri::command]
 #[specta::specta]
 pub fn toggle_pause_encounter(state: tauri::State<'_, EncounterMutex>) {
-    let mut encounter = state.lock().unwrap();
+    let mut encounter = state.lock_safe();
     encounter.is_encounter_paused = !encounter.is_encounter_paused;
 }
 
@@ -138,9 +185,9 @@ pub fn get_dps_player_window(
     player_cache_state: tauri::State<'_, PlayerCacheMutex>,
     player_state: tauri::State<'_, PlayerStateMutex>,
 ) -> PlayersWindow {
-    let player_state = player_state.lock().unwrap();
-    let encounter = state.lock().unwrap();
-    let player_cache = player_cache_state.lock().unwrap();
+    let player_state = player_state.lock_safe();
+    let encounter = state.lock_safe();
+    let player_cache = player_cache_state.lock_safe();
     get_player_window(encounter, StatType::Dmg, &player_cache, &player_state)
 }
 
@@ -151,9 +198,9 @@ pub fn get_heal_player_window(
     player_cache_state: tauri::State<'_, PlayerCacheMutex>,
     player_state: tauri::State<'_, PlayerStateMutex>,
 ) -> PlayersWindow {
-    let player_state = player_state.lock().unwrap();
-    let encounter = state.lock().unwrap();
-    let player_cache = player_cache_state.lock().unwrap();
+    let player_state = player_state.lock_safe();
+    let encounter = state.lock_safe();
+    let player_cache = player_cache_state.lock_safe();
     get_player_window(encounter, StatType::Heal, &player_cache, &player_state)
 }
 
@@ -164,9 +211,9 @@ pub fn get_dps_boss_only_player_window(
     player_cache_state: tauri::State<'_, PlayerCacheMutex>,
     player_state: tauri::State<'_, PlayerStateMutex>,
 ) -> PlayersWindow {
-    let player_state = player_state.lock().unwrap();
-    let encounter = state.lock().unwrap();
-    let player_cache = player_cache_state.lock().unwrap();
+    let player_state = player_state.lock_safe();
+    let encounter = state.lock_safe();
+    let player_cache = player_cache_state.lock_safe();
     get_player_window(
         encounter,
         StatType::DmgBossOnly,
@@ -271,9 +318,9 @@ pub fn get_dps_skill_window(
     player_uid_str: &str,
 ) -> Result<SkillsWindow, String> {
     let player_uid = player_uid_str.parse().unwrap();
-    let player_state = player_state.lock().unwrap();
-    let encounter = state.lock().unwrap();
-    let player_cache = player_cache_state.lock().unwrap();
+    let player_state = player_state.lock_safe();
+    let encounter = state.lock_safe();
+    let player_cache = player_cache_state.lock_safe();
     get_skill_window(
         encounter,
         player_uid,
@@ -292,9 +339,9 @@ pub fn get_dps_boss_only_skill_window(
     player_uid_str: &str,
 ) -> Result<SkillsWindow, String> {
     let player_uid = player_uid_str.parse().unwrap();
-    let player_state = player_state.lock().unwrap();
-    let encounter = state.lock().unwrap();
-    let player_cache = player_cache_state.lock().unwrap();
+    let player_state = player_state.lock_safe();
+    let encounter = state.lock_safe();
+    let player_cache = player_cache_state.lock_safe();
     get_skill_window(
         encounter,
         player_uid,
@@ -313,9 +360,9 @@ pub fn get_heal_skill_window(
     player_uid_str: &str,
 ) -> Result<SkillsWindow, String> {
     let player_uid = player_uid_str.parse().unwrap();
-    let player_state = player_state.lock().unwrap();
-    let encounter = state.lock().unwrap();
-    let player_cache = player_cache_state.lock().unwrap();
+    let player_state = player_state.lock_safe();
+    let encounter = state.lock_safe();
+    let player_cache = player_cache_state.lock_safe();
     get_skill_window(
         encounter,
         player_uid,
@@ -746,7 +793,7 @@ pub fn get_test_skill_window(_player_uid: String) -> Result<SkillsWindow, String
 #[tauri::command]
 #[specta::specta]
 pub fn get_modules(modules_state: tauri::State<'_, ModulesMutex>) -> Vec<ModuleInfo> {
-    modules_state.lock().unwrap().clone()
+    modules_state.lock_safe().clone()
 }
 
 /// The list of selectable module attributes (for the optimizer's pickers).
@@ -765,7 +812,7 @@ pub async fn optimize_modules(
 ) -> Result<Vec<ModuleSolution>, String> {
     // Snapshot the modules under the lock, then run the (potentially heavy)
     // search off the async runtime so the UI stays responsive.
-    let modules = modules_state.lock().unwrap().clone();
+    let modules = modules_state.lock_safe().clone();
 
     if modules.is_empty() {
         return Err("No module data yet. Open your character / re-log in.".to_string());
@@ -774,4 +821,87 @@ pub async fn optimize_modules(
     tauri::async_runtime::spawn_blocking(move || optimize(&modules, &request))
         .await
         .map_err(|e| format!("Optimizer task failed: {e}"))
+}
+
+/// Browse stored past encounters (most recent first).
+#[tauri::command]
+#[specta::specta]
+pub fn get_encounter_history(
+    db: tauri::State<'_, DatabaseMutex>,
+    limit: i64,
+) -> Result<Vec<EncounterSummary>, String> {
+    let limit = if limit <= 0 { 200 } else { limit.min(1000) };
+    database::list_encounters(&db, limit)
+}
+
+/// Full per-player / per-skill detail for one stored encounter.
+#[tauri::command]
+#[specta::specta]
+pub fn get_encounter_detail(
+    db: tauri::State<'_, DatabaseMutex>,
+    id: i64,
+) -> Result<EncounterDetail, String> {
+    database::get_detail(&db, id)
+}
+
+/// Delete a single stored encounter.
+#[tauri::command]
+#[specta::specta]
+pub fn delete_encounter(db: tauri::State<'_, DatabaseMutex>, id: i64) -> Result<(), String> {
+    database::delete_encounter(&db, id)
+}
+
+/// Delete all stored encounters.
+#[tauri::command]
+#[specta::specta]
+pub fn clear_encounter_history(db: tauri::State<'_, DatabaseMutex>) -> Result<(), String> {
+    database::clear_all(&db)
+}
+
+/// Capture connectivity diagnostics: whether the game process is detected and
+/// which of its TCP ports are being tracked (Settings → Capture).
+#[tauri::command]
+#[specta::specta]
+pub fn get_capture_diagnostics() -> crate::packets::tcp_table::CaptureDiagnostics {
+    crate::packets::tcp_table::diagnostics()
+}
+
+/// Recent chat messages, optionally filtered by channel id (empty = all).
+/// Union (Guild) is channel 4.
+#[tauri::command]
+#[specta::specta]
+pub fn get_chat_messages(
+    chat_state: tauri::State<'_, crate::live::chat::ChatStoreMutex>,
+    channels: Vec<i32>,
+    limit: i64,
+) -> Vec<crate::live::chat::ChatRow> {
+    let limit = if limit <= 0 { 200 } else { limit.min(500) } as usize;
+    chat_state.lock_safe().rows(&channels, limit)
+}
+
+/// Clear the in-memory chat log.
+#[tauri::command]
+#[specta::specta]
+pub fn clear_chat(chat_state: tauri::State<'_, crate::live::chat::ChatStoreMutex>) {
+    chat_state.lock_safe().clear();
+}
+
+/// Enable/disable forwarding Guild (Union) chat to the server-side dedupe relay.
+/// The endpoint + API key are baked into the build; this is just the on/off gate.
+#[tauri::command]
+#[specta::specta]
+pub fn set_guild_relay(relay: tauri::State<'_, crate::live::chat::GuildRelayState>, enabled: bool) {
+    relay.set(enabled);
+    info!(
+        "Guild chat relay {}",
+        if enabled { "enabled" } else { "disabled" }
+    );
+}
+
+/// Relay status for the UI: whether the build has the API key configured and
+/// whether the dedupe server is reachable (GET /health).
+#[tauri::command]
+#[specta::specta]
+pub async fn get_guild_relay_status() -> crate::live::chat::GuildRelayStatus {
+    crate::live::chat::relay_status().await
 }

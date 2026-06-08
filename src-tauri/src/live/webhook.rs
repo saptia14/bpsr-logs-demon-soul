@@ -1,6 +1,7 @@
 use crate::live::opcodes_models::class;
 use crate::live::opcodes_models::{CombatStats, Encounter};
 use crate::live::player_state::PlayerCacheMutex;
+use crate::utils::sync::MutexExt;
 use log::{error, info};
 use reqwest::multipart;
 use serde::Serialize;
@@ -82,10 +83,15 @@ pub fn submit_report(
         return;
     }
 
-    let time_elapsed_ms = encounter.time_last_combat_packet_ms.saturating_sub(encounter.time_fight_start_ms);
+    let time_elapsed_ms = encounter
+        .time_last_combat_packet_ms
+        .saturating_sub(encounter.time_fight_start_ms);
     let time_elapsed_secs = time_elapsed_ms as f64 / 1000.0;
     if time_elapsed_secs < 2.0 {
-        info!("Skipping webhook report: encounter too short ({}s)", time_elapsed_secs);
+        info!(
+            "Skipping webhook report: encounter too short ({}s)",
+            time_elapsed_secs
+        );
         return;
     }
 
@@ -97,7 +103,7 @@ pub fn submit_report(
         .unwrap_or(0);
 
     let level_map_id = {
-        let state = player_state_mutex.lock().unwrap();
+        let state = player_state_mutex.lock_safe();
         state.get_level_map_id_opt().unwrap_or(0)
     };
 
@@ -108,21 +114,45 @@ pub fn submit_report(
 
     {
         // Scope for the mutex lock so it drops before tokio::spawn
-        let player_cache = player_cache_mutex.lock().unwrap();
+        let player_cache = player_cache_mutex.lock_safe();
 
-        if let Some(name) = encounter.entity_uid_to_entity.get(&(local_player_uid as i64)).and_then(|e| e.name.clone()).or_else(|| player_cache.get_name(local_player_uid as i64)) {
+        if let Some(name) = encounter
+            .entity_uid_to_entity
+            .get(&(local_player_uid as i64))
+            .and_then(|e| e.name.clone())
+            .or_else(|| player_cache.get_name(local_player_uid as i64))
+        {
             reporter_name = name;
         }
 
         for (&uid, entity) in &encounter.entity_uid_to_entity {
-            if entity.entity_type != crate::protocol::pb::EEntityType::EntChar || entity.dmg_stats.value == 0 {
+            if entity.entity_type != crate::protocol::pb::EEntityType::EntChar
+                || entity.dmg_stats.value == 0
+            {
                 continue;
             }
 
-            let name = entity.name.clone().or_else(|| player_cache.get_name(uid)).unwrap_or_else(|| format!("Player {uid}"));
-            let class = class::get_class_name(entity.class.or_else(|| player_cache.get_class(uid)).unwrap_or(class::Class::Unknown));
-            let class_spec = class::get_class_spec(entity.class_spec.or_else(|| player_cache.get_class_spec(uid)).unwrap_or(class::ClassSpec::Unknown));
-            let ability_score = entity.ability_score.or_else(|| player_cache.get_ability_score(uid)).unwrap_or(-1);
+            let name = entity
+                .name
+                .clone()
+                .or_else(|| player_cache.get_name(uid))
+                .unwrap_or_else(|| format!("Player {uid}"));
+            let class = class::get_class_name(
+                entity
+                    .class
+                    .or_else(|| player_cache.get_class(uid))
+                    .unwrap_or(class::Class::Unknown),
+            );
+            let class_spec = class::get_class_spec(
+                entity
+                    .class_spec
+                    .or_else(|| player_cache.get_class_spec(uid))
+                    .unwrap_or(class::ClassSpec::Unknown),
+            );
+            let ability_score = entity
+                .ability_score
+                .or_else(|| player_cache.get_ability_score(uid))
+                .unwrap_or(-1);
 
             if entity.dmg_stats.value > top_player_dmg {
                 top_player_dmg = entity.dmg_stats.value;
@@ -130,7 +160,8 @@ pub fn submit_report(
             }
 
             // Combine DPS and Heal skills
-            let mut all_skills: std::collections::HashMap<i32, ZdpsSkillStats> = std::collections::HashMap::new();
+            let mut all_skills: std::collections::HashMap<i32, ZdpsSkillStats> =
+                std::collections::HashMap::new();
 
             // Insert Damage skills
             for (&skill_uid, skill_stat) in &entity.skill_uid_to_dps_stats {
@@ -175,9 +206,14 @@ pub fn submit_report(
             let mut skills: Vec<ZdpsSkillStats> = all_skills.into_values().collect();
             // Sort skills mostly by damage, then healing
             skills.sort_by(|a, b| {
-                b.total_damage.partial_cmp(&a.total_damage)
+                b.total_damage
+                    .partial_cmp(&a.total_damage)
                     .unwrap_or(std::cmp::Ordering::Equal)
-                    .then(b.total_healing.partial_cmp(&a.total_healing).unwrap_or(std::cmp::Ordering::Equal))
+                    .then(
+                        b.total_healing
+                            .partial_cmp(&a.total_healing)
+                            .unwrap_or(std::cmp::Ordering::Equal),
+                    )
             });
 
             players_data.push(ZdpsPlayerStats {
@@ -200,7 +236,11 @@ pub fn submit_report(
     } // MutexGuard is dropped here
 
     // Ordenar jugadores por daño descendente
-    players_data.sort_by(|a, b| b.total_damage.partial_cmp(&a.total_damage).unwrap_or(std::cmp::Ordering::Equal));
+    players_data.sort_by(|a, b| {
+        b.total_damage
+            .partial_cmp(&a.total_damage)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let encounter_data = ZdpsEncounterData {
         metadata: ZdpsMetadata {
@@ -225,9 +265,15 @@ pub fn submit_report(
         }
     };
 
-    let pretty_dps = format!("{:.2}M", (encounter.dmg_stats.value as f64 / time_elapsed_secs) / 1_000_000.0);
+    let pretty_dps = format!(
+        "{:.2}M",
+        (encounter.dmg_stats.value as f64 / time_elapsed_secs) / 1_000_000.0
+    );
     let pretty_total = format!("{:.2}M", encounter.dmg_stats.value as f64 / 1_000_000.0);
-    let pretty_hps = format!("{:.2}K", (encounter.heal_stats.value as f64 / time_elapsed_secs) / 1_000.0);
+    let pretty_hps = format!(
+        "{:.2}K",
+        (encounter.heal_stats.value as f64 / time_elapsed_secs) / 1_000.0
+    );
     let pretty_healing = format!("{:.2}M", encounter.heal_stats.value as f64 / 1_000_000.0);
 
     let embed = json!({
@@ -280,7 +326,10 @@ pub fn submit_report(
                 if response.status().is_success() {
                     info!("Successfully submitted report to DemonSoul webhook");
                 } else {
-                    error!("Failed to submit webhook report. Status: {}", response.status());
+                    error!(
+                        "Failed to submit webhook report. Status: {}",
+                        response.status()
+                    );
                 }
             }
             Err(e) => {

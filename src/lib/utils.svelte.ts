@@ -19,6 +19,7 @@ export const classColors: Record<string, { dark: string; light: string }> = {
 	Marksman: { dark: 'oklch(0.55 0.20 25)', light: 'oklch(0.45 0.20 25)' },
 	'Frost Mage': { dark: 'oklch(0.70 0.12 220)', light: 'oklch(0.60 0.12 220)' },
 	'Wind Knight': { dark: 'oklch(0.60 0.18 200)', light: 'oklch(0.50 0.18 200)' },
+	'Twin Striker': { dark: 'oklch(0.78 0.16 75)', light: 'oklch(0.68 0.16 75)' },
 	Stormblade: { dark: 'oklch(0.55 0.22 280)', light: 'oklch(0.45 0.22 280)' }
 };
 

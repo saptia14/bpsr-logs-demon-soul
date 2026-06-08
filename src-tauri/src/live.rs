@@ -2,8 +2,10 @@
 // Preferred way is to name modules with their subfolder name now (no longer mod.rs)
 pub mod bptimer;
 pub mod bptimer_state;
+pub mod chat;
 pub mod commands;
 mod commands_models;
+pub mod database;
 pub mod live_main;
 pub mod module_optimizer;
 pub mod opcodes_models;

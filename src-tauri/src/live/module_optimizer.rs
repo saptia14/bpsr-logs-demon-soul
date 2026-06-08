@@ -43,21 +43,112 @@ const SPECIAL_ATTR_POWER: [i32; 7] = [0, 14, 29, 59, 89, 298, 448];
 /// Sparse total-value → bonus pairs (verbatim from upstream `module_types.py`).
 /// Keys not listed (9..=17, 107..=112, and >120) contribute 0.
 const TOTAL_ATTR_POWER_PAIRS: &[(usize, i32)] = &[
-    (0, 0), (1, 5), (2, 11), (3, 17), (4, 23), (5, 29), (6, 34), (7, 40), (8, 46),
-    (18, 104), (19, 110), (20, 116), (21, 122), (22, 128), (23, 133), (24, 139),
-    (25, 145), (26, 151), (27, 157), (28, 163), (29, 168), (30, 174), (31, 180),
-    (32, 186), (33, 192), (34, 198), (35, 203), (36, 209), (37, 215), (38, 221),
-    (39, 227), (40, 233), (41, 238), (42, 244), (43, 250), (44, 256), (45, 262),
-    (46, 267), (47, 273), (48, 279), (49, 285), (50, 291), (51, 297), (52, 302),
-    (53, 308), (54, 314), (55, 320), (56, 326), (57, 332), (58, 337), (59, 343),
-    (60, 349), (61, 355), (62, 361), (63, 366), (64, 372), (65, 378), (66, 384),
-    (67, 390), (68, 396), (69, 401), (70, 407), (71, 413), (72, 419), (73, 425),
-    (74, 431), (75, 436), (76, 442), (77, 448), (78, 454), (79, 460), (80, 466),
-    (81, 471), (82, 477), (83, 483), (84, 489), (85, 495), (86, 500), (87, 506),
-    (88, 512), (89, 518), (90, 524), (91, 530), (92, 535), (93, 541), (94, 547),
-    (95, 553), (96, 559), (97, 565), (98, 570), (99, 576), (100, 582), (101, 588),
-    (102, 594), (103, 599), (104, 605), (105, 611), (106, 617), (113, 658),
-    (114, 664), (115, 669), (116, 675), (117, 681), (118, 687), (119, 693), (120, 699),
+    (0, 0),
+    (1, 5),
+    (2, 11),
+    (3, 17),
+    (4, 23),
+    (5, 29),
+    (6, 34),
+    (7, 40),
+    (8, 46),
+    (18, 104),
+    (19, 110),
+    (20, 116),
+    (21, 122),
+    (22, 128),
+    (23, 133),
+    (24, 139),
+    (25, 145),
+    (26, 151),
+    (27, 157),
+    (28, 163),
+    (29, 168),
+    (30, 174),
+    (31, 180),
+    (32, 186),
+    (33, 192),
+    (34, 198),
+    (35, 203),
+    (36, 209),
+    (37, 215),
+    (38, 221),
+    (39, 227),
+    (40, 233),
+    (41, 238),
+    (42, 244),
+    (43, 250),
+    (44, 256),
+    (45, 262),
+    (46, 267),
+    (47, 273),
+    (48, 279),
+    (49, 285),
+    (50, 291),
+    (51, 297),
+    (52, 302),
+    (53, 308),
+    (54, 314),
+    (55, 320),
+    (56, 326),
+    (57, 332),
+    (58, 337),
+    (59, 343),
+    (60, 349),
+    (61, 355),
+    (62, 361),
+    (63, 366),
+    (64, 372),
+    (65, 378),
+    (66, 384),
+    (67, 390),
+    (68, 396),
+    (69, 401),
+    (70, 407),
+    (71, 413),
+    (72, 419),
+    (73, 425),
+    (74, 431),
+    (75, 436),
+    (76, 442),
+    (77, 448),
+    (78, 454),
+    (79, 460),
+    (80, 466),
+    (81, 471),
+    (82, 477),
+    (83, 483),
+    (84, 489),
+    (85, 495),
+    (86, 500),
+    (87, 506),
+    (88, 512),
+    (89, 518),
+    (90, 524),
+    (91, 530),
+    (92, 535),
+    (93, 541),
+    (94, 547),
+    (95, 553),
+    (96, 559),
+    (97, 565),
+    (98, 570),
+    (99, 576),
+    (100, 582),
+    (101, 588),
+    (102, 594),
+    (103, 599),
+    (104, 605),
+    (105, 611),
+    (106, 617),
+    (113, 658),
+    (114, 664),
+    (115, 669),
+    (116, 675),
+    (117, 681),
+    (118, 687),
+    (119, 693),
+    (120, 699),
 ];
 
 /// Largest key in the total-value table.
@@ -67,7 +158,10 @@ const TOTAL_MAX: usize = 120;
 /// `v` (already clamped to 0..=20). Index 0 = basic table, 1 = special table.
 static POWER_BY_VALUE: LazyLock<[[i32; 21]; 2]> = LazyLock::new(|| {
     let mut table = [[0i32; 21]; 2];
-    for (kind, powers) in [&BASIC_ATTR_POWER, &SPECIAL_ATTR_POWER].into_iter().enumerate() {
+    for (kind, powers) in [&BASIC_ATTR_POWER, &SPECIAL_ATTR_POWER]
+        .into_iter()
+        .enumerate()
+    {
         for value in 0..=20i32 {
             let level = ATTR_THRESHOLDS.iter().filter(|&&t| value >= t).count();
             table[kind][value as usize] = powers[level];
@@ -181,7 +275,10 @@ struct TopK {
 }
 impl TopK {
     fn new(cap: usize) -> Self {
-        Self { cap: cap.max(1), heap: BinaryHeap::new() }
+        Self {
+            cap: cap.max(1),
+            heap: BinaryHeap::new(),
+        }
     }
     fn push(&mut self, item: Scored) {
         if self.heap.len() < self.cap {
@@ -207,7 +304,11 @@ pub fn optimize(modules: &[ModuleInfo], req: &OptimizeRequest) -> Vec<ModuleSolu
     let top_n = req.top_n.clamp(1, 100) as usize;
 
     // Resolve target / exclude attribute ids to canonical slots.
-    let target_slots: Vec<usize> = req.target_attrs.iter().filter_map(|&id| attr_slot(id)).collect();
+    let target_slots: Vec<usize> = req
+        .target_attrs
+        .iter()
+        .filter_map(|&id| attr_slot(id))
+        .collect();
     let exclude_ids: Vec<i32> = req.exclude_attrs.clone();
 
     // 1) Filter by category / exclude / match-count.
@@ -262,8 +363,11 @@ pub fn optimize(modules: &[ModuleInfo], req: &OptimizeRequest) -> Vec<ModuleSolu
         .into_iter()
         .enumerate()
         .map(|(rank, s)| {
-            let modules: Vec<ModuleInfo> =
-                s.idxs.iter().map(|&ci| filtered[candidates[ci]].clone()).collect();
+            let modules: Vec<ModuleInfo> = s
+                .idxs
+                .iter()
+                .map(|&ci| filtered[candidates[ci]].clone())
+                .collect();
             let mut totals = [0i32; NUM_ATTRS];
             for &ci in &s.idxs {
                 for i in 0..NUM_ATTRS {
@@ -272,7 +376,10 @@ pub fn optimize(modules: &[ModuleInfo], req: &OptimizeRequest) -> Vec<ModuleSolu
             }
             let mut breakdown: Vec<AttrValue> = (0..NUM_ATTRS)
                 .filter(|&i| totals[i] > 0)
-                .map(|i| AttrValue { name: ATTRS[i].name.to_string(), value: totals[i] })
+                .map(|i| AttrValue {
+                    name: ATTRS[i].name.to_string(),
+                    value: totals[i],
+                })
                 .collect();
             breakdown.sort_by(|a, b| b.value.cmp(&a.value));
             ModuleSolution {
@@ -363,7 +470,11 @@ fn recurse(
 ) {
     if depth == size {
         let score = score_totals(&cur_totals, cur_tv);
-        heap.push(Scored { score, total: cur_tv, idxs: path.clone() });
+        heap.push(Scored {
+            score,
+            total: cur_tv,
+            idxs: path.clone(),
+        });
         return;
     }
     let n = vecs.len();
@@ -373,19 +484,24 @@ fn recurse(
             totals[i] += vecs[next][i];
         }
         path.push(next);
-        recurse(vecs, tv, size, next, path, totals, cur_tv + tv[next], heap, depth + 1);
+        recurse(
+            vecs,
+            tv,
+            size,
+            next,
+            path,
+            totals,
+            cur_tv + tv[next],
+            heap,
+            depth + 1,
+        );
         path.pop();
     }
 }
 
 /// Beam search for larger combinations (size 5), where full enumeration is
 /// intractable. Heuristic — results are near-optimal, matching upstream.
-fn beam_search(
-    vecs: &[[i32; NUM_ATTRS]],
-    tv: &[i32],
-    size: usize,
-    top_n: usize,
-) -> Vec<Scored> {
+fn beam_search(vecs: &[[i32; NUM_ATTRS]], tv: &[i32], size: usize, top_n: usize) -> Vec<Scored> {
     const BEAM_WIDTH: usize = 5096;
     let n = vecs.len();
 
@@ -412,7 +528,12 @@ fn beam_search(
 
     // Level 1: every single module.
     let mut beam: Vec<State> = (0..n)
-        .map(|i| State { totals: vecs[i], tv: tv[i], last: i, idxs: vec![i] })
+        .map(|i| State {
+            totals: vecs[i],
+            tv: tv[i],
+            last: i,
+            idxs: vec![i],
+        })
         .collect();
     keep_top_states(&mut beam, BEAM_WIDTH);
 
@@ -427,7 +548,12 @@ fn beam_search(
                     }
                     let mut idxs = state.idxs.clone();
                     idxs.push(k);
-                    State { totals, tv: state.tv + tv[k], last: k, idxs }
+                    State {
+                        totals,
+                        tv: state.tv + tv[k],
+                        last: k,
+                        idxs,
+                    }
                 })
             })
             .collect();
@@ -438,7 +564,11 @@ fn beam_search(
     let scored: Vec<Scored> = beam
         .into_iter()
         .filter(|s| s.idxs.len() == size)
-        .map(|s| Scored { score: score_totals(&s.totals, s.tv), total: s.tv, idxs: s.idxs })
+        .map(|s| Scored {
+            score: score_totals(&s.totals, s.tv),
+            total: s.tv,
+            idxs: s.idxs,
+        })
         .collect();
     finalize(scored, top_n)
 }
@@ -487,13 +617,7 @@ mod tests {
     #[test]
     fn score_matches_automod_log_rank8() {
         // Rank #8: Strength 16, Attack SPD 21, Agility 21, DMG Stack 8, Elite 20 → 1488.
-        let (t, tv) = totals_from(&[
-            (1110, 16),
-            (1408, 21),
-            (1111, 21),
-            (2104, 8),
-            (1114, 20),
-        ]);
+        let (t, tv) = totals_from(&[(1110, 16), (1408, 21), (1111, 21), (2104, 8), (1114, 20)]);
         assert_eq!(tv, 86);
         assert_eq!(score_totals(&t, tv), 1488);
     }

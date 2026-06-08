@@ -2,6 +2,7 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import General from '$lib/components/settings/general.svelte';
 	import Live from '$lib/components/settings/live.svelte';
+	import Capture from '$lib/components/settings/capture.svelte';
 	import Misc from '$lib/components/settings/misc.svelte';
 	import Shortcuts from '$lib/components/settings/shortcuts.svelte';
 	import { SETTINGS } from '$lib/settings-store';
@@ -9,6 +10,7 @@
 	const settingsTabs = [
 		{ id: 'general', label: 'General' },
 		{ id: 'live', label: 'Display' },
+		{ id: 'capture', label: 'Capture' },
 		{ id: 'shortcuts', label: 'Shortcuts' },
 		{ id: 'misc', label: 'Misc' }
 	];
@@ -34,6 +36,7 @@
 		<div class="settings-cards space-y-4">
 			<General />
 			<Live />
+			<Capture />
 			<Shortcuts />
 			<Misc />
 		</div>

@@ -123,6 +123,58 @@ pub struct NotifySocialDataRequest {
     #[prost(message, optional, tag = "1")]
     pub data: ::core::option::Option<SocialData>,
 }
+/// --- Chat (ChitChatNtf service, method NotifyNewestChitChatMsgs) ---
+/// Enums (channel_type / msg_type) are decoded as int32 to avoid enum codegen.
+#[derive(specta::Type)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct NotifyNewestChitChatMsgs {
+    #[prost(message, optional, tag = "1")]
+    pub v_request: ::core::option::Option<NotifyNewestChitChatMsgsRequest>,
+}
+#[derive(specta::Type)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct NotifyNewestChitChatMsgsRequest {
+    /// ChitChatChannelType: World=1 Local/Scene=2 Team=3 Union=4 Private=5 Group=6 System=99
+    #[prost(int32, tag = "1")]
+    pub channel_type: i32,
+    #[prost(message, optional, tag = "2")]
+    pub chat_msg: ::core::option::Option<ChitChatMsg>,
+}
+#[derive(specta::Type)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ChitChatMsg {
+    /// game id (per channel+session); used for the idempotency key
+    #[prost(int64, tag = "1")]
+    pub msg_id: i64,
+    #[prost(message, optional, tag = "2")]
+    pub send_char_info: ::core::option::Option<BasicShowInfo>,
+    /// unix seconds
+    #[prost(int64, tag = "3")]
+    pub timestamp: i64,
+    #[prost(message, optional, tag = "4")]
+    pub msg_info: ::core::option::Option<ChatMsgInfo>,
+}
+#[derive(specta::Type)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ChatMsgInfo {
+    /// ChitChatMsgType: text=0 (others: notice/multilang/emoji/picture/voice/hypertext)
+    #[prost(int32, tag = "1")]
+    pub msg_type: i32,
+    #[prost(int64, tag = "2")]
+    pub target_id: i64,
+    #[prost(string, tag = "3")]
+    pub msg_text: ::prost::alloc::string::String,
+}
+#[derive(specta::Type)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BasicShowInfo {
+    #[prost(int64, tag = "1")]
+    pub char_id: i64,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(int32, tag = "5")]
+    pub level: i32,
+}
 #[derive(specta::Type)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Package {

@@ -1,7 +1,14 @@
 use crate::packets;
 use crate::packets::opcodes::{FragmentType, Pkt};
 use crate::packets::utils::BinaryReader;
-use log::debug;
+use log::{debug, info};
+use std::collections::HashSet;
+use std::sync::{LazyLock, Mutex};
+
+// [CHATDEBUG] Tracks which Notify service_uuids we've already logged, so we log
+// each distinct one only once (low noise) — this reveals exactly which game
+// services are actually being captured/reassembled.
+static SEEN_SERVICES: LazyLock<Mutex<HashSet<u64>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
 pub async fn process_packet(
     mut packets_reader: BinaryReader,
@@ -77,6 +84,22 @@ pub async fn process_packet(
                     }
                 }
 
+                // [CHATDEBUG] Log each distinct service_uuid once + flag chat packets.
+                if let Ok(mut seen) = SEEN_SERVICES.lock() {
+                    if seen.insert(service_uuid) {
+                        info!(
+                            "[CHATDEBUG] new Notify service_uuid={service_uuid} (0x{service_uuid:08X}) first_method={method_id_raw} payload_len={}",
+                            tcp_fragment_vec.len()
+                        );
+                    }
+                }
+                if service_uuid == crate::protocol::constants::CHIT_CHAT_NTF_SERVICE_ID {
+                    info!(
+                        "[CHATDEBUG] CHITCHAT packet reached parser: method={method_id_raw} payload_len={}",
+                        tcp_fragment_vec.len()
+                    );
+                }
+
                 // SocialNtf scene data
                 if service_uuid == crate::protocol::constants::SOCIAL_NTF_SERVICE_ID
                     && method_id_raw == crate::protocol::constants::SOCIAL_NTF_NOTIFY_METHOD_ID
@@ -86,6 +109,19 @@ pub async fn process_packet(
                         .await
                     {
                         debug!("Failed to send SocialNtf packet: {err}");
+                    }
+                    continue;
+                }
+
+                // ChitChatNtf chat messages
+                if service_uuid == crate::protocol::constants::CHIT_CHAT_NTF_SERVICE_ID
+                    && method_id_raw == crate::protocol::constants::CHIT_CHAT_NOTIFY_METHOD_ID
+                {
+                    if let Err(err) = packet_sender
+                        .send((Pkt::NotifyChatData, tcp_fragment_vec))
+                        .await
+                    {
+                        debug!("Failed to send ChitChat packet: {err}");
                     }
                     continue;
                 }

@@ -21,7 +21,7 @@ fn send_server_change_info(packet_sender: &tokio::sync::mpsc::Sender<(Pkt, Vec<u
 
 // Delay between handle cleanup and recreation to allow kernel cleanup
 const HANDLE_CLEANUP_DELAY_MS: u64 = 500;
-const MAX_SUBNET_CONNECTIONS: usize = 16;
+const MAX_SUBNET_CONNECTIONS: usize = 64;
 
 pub fn start_capture() -> tokio::sync::mpsc::Receiver<(packets::opcodes::Pkt, Vec<u8>)> {
     const PACKET_CHANNEL_CAPACITY: usize = 256;
@@ -56,6 +56,7 @@ async fn read_packets(
     ) {
         Ok(windivert_handle) => {
             info!("WinDivert handle opened");
+            crate::packets::tcp_table::log_summary();
             windivert_handle
         }
         Err(e) => {
@@ -187,18 +188,38 @@ async fn read_packets(
                 }
             }
 
-            // 3. Auto-track game subnet connections (SocialNtf arrives on a separate connection)
+            // 3. Auto-track game secondary connections (SocialNtf arrives on a
+            //    separate connection). A flow qualifies if it matches the game
+            //    subnet OR is owned by the game process (process/PID + port
+            //    detection — VPN/ExitLag-robust, where the subnet heuristic can
+            //    misfire). See packets::tcp_table.
             if !detected && !tcp_payload.is_empty() {
-                if let Some(prefix) = &game_subnet {
-                    if curr_server.src_matches_subnet(prefix) {
-                        if !subnet_reassemblers.contains_key(&curr_server) {
-                            if subnet_reassemblers.len() < MAX_SUBNET_CONNECTIONS {
-                                subnet_reassemblers.insert(curr_server, TCPReassembler::new());
+                let subnet_match = game_subnet
+                    .as_ref()
+                    .is_some_and(|prefix| curr_server.src_matches_subnet(prefix));
+                let game_owned = crate::packets::tcp_table::is_game_flow(
+                    tcp_packet.to_header().source_port,
+                    tcp_packet.to_header().destination_port,
+                );
+                if subnet_match || game_owned {
+                    if !subnet_reassemblers.contains_key(&curr_server) {
+                        // The game churns through many short-lived connections
+                        // (asset/CDN bursts). If the map fills with those, the
+                        // real scene/chat data connection can't get a slot and
+                        // the meter goes "stuck" (only keepalives). So when full,
+                        // evict one entry to make room for a game-owned flow,
+                        // which is the one that carries actual game data.
+                        if subnet_reassemblers.len() >= MAX_SUBNET_CONNECTIONS && game_owned {
+                            if let Some(&victim) = subnet_reassemblers.keys().next() {
+                                subnet_reassemblers.remove(&victim);
                             }
                         }
-                        if let Some(reassembler) = subnet_reassemblers.get_mut(&curr_server) {
-                            reassemble_and_process(reassembler, &tcp_packet, packet_sender, true);
+                        if subnet_reassemblers.len() < MAX_SUBNET_CONNECTIONS {
+                            subnet_reassemblers.insert(curr_server, TCPReassembler::new());
                         }
+                    }
+                    if let Some(reassembler) = subnet_reassemblers.get_mut(&curr_server) {
+                        reassemble_and_process(reassembler, &tcp_packet, packet_sender, true);
                     }
                 }
             }

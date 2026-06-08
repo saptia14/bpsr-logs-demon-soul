@@ -53,6 +53,14 @@
 		});
 	});
 
+	$effect(() => {
+		commands
+			.setGuildRelay(SETTINGS.integration.state.guildChatRelayEnabled)
+			.catch((err: unknown) => {
+				console.error('Failed to sync guild chat relay state:', err);
+			});
+	});
+
 	$effect.pre(() => {
 		(async () => {
 			await setupShortcuts();

@@ -46,7 +46,8 @@ const DEFAULT_SETTINGS = {
 	},
 	integration: {
 		bptimer: true,
-		webhookEnabled: false // Discord encounter report webhook (off by default)
+		webhookEnabled: false, // Discord encounter report webhook (off by default)
+		guildChatRelayEnabled: true // forward Guild (Union) chat to the dedupe relay (on by default)
 	}
 };
 

@@ -8,9 +8,9 @@ mod utils;
 
 use crate::build_app::build;
 use crate::live::bptimer_state::create_bptimer_enabled;
-use crate::live::webhook_state::create_webhook_enabled;
 use crate::live::opcodes_models::EncounterMutex;
 use crate::live::player_state::{PlayerCacheMutex, PlayerStateMutex};
+use crate::live::webhook_state::create_webhook_enabled;
 use chrono::Utc;
 use log::{info, warn};
 use std::fs;
@@ -35,13 +35,18 @@ pub fn run() {
         info!("Loaded .env file successfully");
     }
 
-    std::panic::set_hook(Box::new(|info| {
-        info!("App crashed! Info: {info:?}");
-        #[cfg(target_os = "windows")]
-        {
-            info!("Unloading and removing WinDivert...");
-            service::stop_windivert();
-        }
+    // NOTE: this global hook fires for EVERY panic in the process, including
+    // panics inside the spawned per-packet worker tasks. Tokio isolates a
+    // panicking task (the runtime keeps running), so a one-off per-packet
+    // panic must NOT tear down the capture driver for the whole app — doing
+    // that previously froze the meter ("can't handle new info") after a reset.
+    // WinDivert is already cleaned up on the real exit paths (window close,
+    // tray quit, ExitRequested) and pre-emptively on the next startup, so the
+    // hook only logs here and defers to the default hook for the backtrace.
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        warn!("Panic (capture left running; cleanup deferred to exit): {info}");
+        default_hook(info);
     }));
 
     let builder = Builder::<tauri::Wry>::new()
@@ -67,6 +72,15 @@ pub fn run() {
             live::commands::get_modules,
             live::commands::get_module_attributes,
             live::commands::optimize_modules,
+            live::commands::get_encounter_history,
+            live::commands::get_encounter_detail,
+            live::commands::delete_encounter,
+            live::commands::clear_encounter_history,
+            live::commands::get_capture_diagnostics,
+            live::commands::get_chat_messages,
+            live::commands::clear_chat,
+            live::commands::set_guild_relay,
+            live::commands::get_guild_relay_status,
         ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -134,6 +148,35 @@ pub fn run() {
             app.manage(PlayerCacheMutex::default()); // setup player cache
             app.manage(crate::live::webhook::PendingWebhookState::new(None)); // pending webhook buffer
             app.manage(crate::live::module_optimizer::ModulesMutex::default()); // persistent parsed gear modules
+            app.manage(crate::live::chat::ChatStoreMutex::default()); // in-memory chat log
+            // Guild chat dedupe relay: ON by default (only relays Union text and
+            // only if the API key is baked in). The frontend re-pushes the
+            // persisted flag once its store loads, so a user toggle still wins.
+            app.manage(crate::live::chat::GuildRelay::new(true));
+
+            // Encounter-history database (SQLite). If it fails to open, the app
+            // still runs — history is just disabled (managed state holds None).
+            let database = match app.path().app_data_dir() {
+                Ok(dir) => {
+                    let _ = fs::create_dir_all(&dir);
+                    let db_path = dir.join("encounters.sqlite3");
+                    match live::database::open(&db_path) {
+                        Ok(conn) => {
+                            info!("Encounter history database ready at {}", db_path.display());
+                            Some(conn)
+                        }
+                        Err(e) => {
+                            warn!("Failed to open encounter database: {e}");
+                            None
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("Could not resolve app data dir for database: {e}");
+                    None
+                }
+            };
+            app.manage(live::database::DatabaseMutex::new(database));
             tauri::async_runtime::spawn(
                 async move { live::live_main::start(app_handle.clone()).await },
             );
@@ -255,7 +298,7 @@ fn setup_logs(app: &tauri::AppHandle) -> tauri::Result<()> {
                 tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
                     file_name: Some(log_file_name),
                 })
-                .filter(|metadata| metadata.level() <= log::LevelFilter::Info), // Exclude DEBUG logs from file
+                .filter(|metadata| metadata.level() <= log::LevelFilter::Debug), // DEBUG temporarily enabled for chat-capture diagnostics
             ])
             .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
             .max_file_size(104857600)

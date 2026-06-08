@@ -1,6 +1,6 @@
 [package]
 name = "bpsr-logs"
-version = "0.25.0"
+version = "0.26.0"
 description = "Blue Protocol: Star Resonance DPS Meter written in Rust"
 authors = ["winjwinj"]
 edition = "2024"
@@ -28,6 +28,7 @@ log = "0.4.29"
 prost = "0.14.3"
 rayon = "1.10"
 reqwest = { version = "0.13.2", features = ["json", "blocking", "rustls", "multipart"], default-features = false }
+rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.149", features = ["arbitrary_precision"] }
 specta = "2.0.0-rc.24"

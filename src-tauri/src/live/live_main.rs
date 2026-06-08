@@ -7,6 +7,7 @@ use crate::live::opcodes_process::{
 use crate::live::player_state::{PlayerCacheMutex, PlayerStateMutex};
 use crate::packets;
 use crate::protocol::pb;
+use crate::utils::sync::MutexExt;
 use bytes::Bytes;
 use log::{info, warn};
 use prost::Message;
@@ -31,7 +32,7 @@ pub async fn start(app_handle: AppHandle) {
     while let Some((op, data)) = rx.recv().await {
         {
             let state = app_handle.state::<EncounterMutex>();
-            let encounter = state.lock().unwrap();
+            let encounter = state.lock_safe();
             if encounter.is_encounter_paused {
                 continue;
             }
@@ -39,19 +40,33 @@ pub async fn start(app_handle: AppHandle) {
         match op {
             packets::opcodes::Pkt::ServerChangeInfo => {
                 let encounter_state = app_handle.state::<EncounterMutex>();
-                let mut encounter_state = encounter_state.lock().unwrap();
-                let pending_webhook_state = app_handle.state::<crate::live::webhook::PendingWebhookState>();
-                
+                let mut encounter_state = encounter_state.lock_safe();
+                let pending_webhook_state =
+                    app_handle.state::<crate::live::webhook::PendingWebhookState>();
+
                 // Disparar reporte automáticamente guardando en caché y pidiendo captura UI
                 {
-                    let mut pending = pending_webhook_state.lock().unwrap();
+                    let mut pending = pending_webhook_state.lock_safe();
                     *pending = Some(encounter_state.clone());
                 }
 
                 if let Err(e) = tauri::Emitter::emit(&app_handle, "request-screenshot", ()) {
                     log::warn!("Failed to request screenshot from frontend: {}", e);
                 }
-                
+
+                // Persist the finished encounter to history before it is reset.
+                {
+                    let db = app_handle.state::<crate::live::database::DatabaseMutex>();
+                    let player_cache = app_handle.state::<PlayerCacheMutex>();
+                    let player_state = app_handle.state::<PlayerStateMutex>();
+                    crate::live::database::save_encounter(
+                        &db,
+                        &encounter_state,
+                        &player_cache.lock_safe(),
+                        &player_state.lock_safe(),
+                    );
+                }
+
                 on_server_change(&mut encounter_state);
             }
             packets::opcodes::Pkt::NotifySocialData => {
@@ -68,7 +83,7 @@ pub async fn start(app_handle: AppHandle) {
 
                 if let Some(scene) = scene_data {
                     let player_state_mutex = app_handle.state::<PlayerStateMutex>();
-                    let mut player_state = player_state_mutex.lock().unwrap();
+                    let mut player_state = player_state_mutex.lock_safe();
 
                     let old_line = player_state.get_line_id_opt();
                     if scene.line_id != 0 {
@@ -84,10 +99,86 @@ pub async fn start(app_handle: AppHandle) {
                             scene.line_id, scene.level_map_id
                         );
                         let encounter_state = app_handle.state::<EncounterMutex>();
-                        let mut encounter_state = encounter_state.lock().unwrap();
+                        let mut encounter_state = encounter_state.lock_safe();
                         encounter_state.entity_uid_to_entity.clear();
                     }
                 }
+            }
+            packets::opcodes::Pkt::NotifyChatData => {
+                let Some(chat) =
+                    decode_packet::<pb::NotifyNewestChitChatMsgs>(data, "NotifyNewestChitChatMsgs")
+                else {
+                    continue;
+                };
+                let Some(req) = chat.v_request else {
+                    continue;
+                };
+                let Some(chat_msg) = req.chat_msg else {
+                    continue;
+                };
+                let info = chat_msg.msg_info.unwrap_or_default();
+                let sender = chat_msg.send_char_info.unwrap_or_default();
+
+                // The game only sends literal text for text/notice messages.
+                // Stickers/voice/links carry no text — show a placeholder so the
+                // log isn't blank (no media URL is available from the game).
+                let is_plain_text = info.msg_type == 0 && !info.msg_text.is_empty();
+                let display_text = if !info.msg_text.is_empty() {
+                    info.msg_text.clone()
+                } else {
+                    match info.msg_type {
+                        2 => "[notice]",
+                        3 => "[sticker]",
+                        4 => "[image]",
+                        5 => "[voice]",
+                        6 => "[link]",
+                        _ => "",
+                    }
+                    .to_string()
+                };
+
+                let message = crate::live::chat::ChatMessage {
+                    id: 0, // assigned by the store
+                    channel: req.channel_type,
+                    sender_uid: sender.char_id,
+                    sender_name: sender.name.clone(),
+                    sender_level: sender.level,
+                    msg_type: info.msg_type,
+                    text: display_text,
+                    timestamp: chat_msg.timestamp,
+                    game_msg_id: chat_msg.msg_id,
+                };
+
+                info!(
+                    "[CHATDEBUG] chat stored: ch={} ({}) sender='{}' lvl={} type={} text='{}'",
+                    message.channel,
+                    crate::live::chat::channel_name(message.channel),
+                    message.sender_name,
+                    message.sender_level,
+                    message.msg_type,
+                    message.text
+                );
+
+                // Relay only real Guild (Union) text messages to the dedupe
+                // relay (keeps the "Name: text" format clean — no stickers).
+                if message.channel == crate::live::chat::CHANNEL_UNION && is_plain_text {
+                    let relay = app_handle.state::<crate::live::chat::GuildRelayState>();
+                    let key = crate::live::chat::idempotency_key(
+                        message.channel,
+                        message.game_msg_id,
+                        message.sender_uid,
+                        message.timestamp,
+                    );
+                    crate::live::chat::relay_guild_message(
+                        &relay,
+                        &message.sender_name,
+                        &info.msg_text,
+                        key,
+                    );
+                }
+
+                let chat_store = app_handle.state::<crate::live::chat::ChatStoreMutex>();
+                chat_store.lock_safe().push(message);
             }
             packets::opcodes::Pkt::SyncNearEntities => {
                 let Some(sync_near_entities) =
@@ -96,9 +187,9 @@ pub async fn start(app_handle: AppHandle) {
                     continue;
                 };
                 let player_state_mutex = app_handle.state::<PlayerStateMutex>();
-                let player_state = player_state_mutex.lock().unwrap();
+                let player_state = player_state_mutex.lock_safe();
                 let encounter_state = app_handle.state::<EncounterMutex>();
-                let mut encounter_state = encounter_state.lock().unwrap();
+                let mut encounter_state = encounter_state.lock_safe();
                 let player_cache_mutex = app_handle.state::<PlayerCacheMutex>();
                 if process_sync_near_entities(
                     &mut encounter_state,
@@ -127,7 +218,7 @@ pub async fn start(app_handle: AppHandle) {
                     if !modules.is_empty() {
                         let modules_mutex =
                             app_handle.state::<crate::live::module_optimizer::ModulesMutex>();
-                        *modules_mutex.lock().unwrap() = modules;
+                        *modules_mutex.lock_safe() = modules;
                     }
                 }
 
@@ -135,7 +226,7 @@ pub async fn start(app_handle: AppHandle) {
                 let mut should_clear_entities = false;
                 if let Some(v_data) = &sync_container_data.v_data {
                     let player_state_mutex = app_handle.state::<PlayerStateMutex>();
-                    let mut player_state = player_state_mutex.lock().unwrap();
+                    let mut player_state = player_state_mutex.lock_safe();
 
                     // Extract and store account_id and uid
                     if let Some(char_base) = &v_data.char_base {
@@ -161,7 +252,7 @@ pub async fn start(app_handle: AppHandle) {
                 }
 
                 let encounter_state = app_handle.state::<EncounterMutex>();
-                let mut encounter_state = encounter_state.lock().unwrap();
+                let mut encounter_state = encounter_state.lock_safe();
                 if should_clear_entities {
                     encounter_state.entity_uid_to_entity.clear();
                 }
@@ -189,7 +280,7 @@ pub async fn start(app_handle: AppHandle) {
             //             }
             //         };
             //     let encounter_state = app_handle.state::<EncounterMutex>();
-            //     let mut encounter_state = encounter_state.lock().unwrap();
+            //     let mut encounter_state = encounter_state.lock_safe();
             //     if process_sync_container_dirty_data(&mut encounter_state, sync_container_dirty_data).is_none() {
             //         warn!("Error processing SyncContainerDirtyData.. ignoring.");
             //     }
@@ -202,7 +293,7 @@ pub async fn start(app_handle: AppHandle) {
                 };
 
                 let player_state_mutex = app_handle.state::<PlayerStateMutex>();
-                let mut player_state = player_state_mutex.lock().unwrap();
+                let mut player_state = player_state_mutex.lock_safe();
 
                 // Update uid if present in delta_info
                 if let Some(delta_info) = &sync_to_me_delta_info.delta_info {
@@ -218,7 +309,7 @@ pub async fn start(app_handle: AppHandle) {
                 }
 
                 let encounter_state = app_handle.state::<EncounterMutex>();
-                let mut encounter_state = encounter_state.lock().unwrap();
+                let mut encounter_state = encounter_state.lock_safe();
                 let player_cache_mutex = app_handle.state::<PlayerCacheMutex>();
                 if process_sync_to_me_delta_info(
                     &mut encounter_state,
@@ -239,9 +330,9 @@ pub async fn start(app_handle: AppHandle) {
                     continue;
                 };
                 let player_state_mutex = app_handle.state::<PlayerStateMutex>();
-                let player_state = player_state_mutex.lock().unwrap();
+                let player_state = player_state_mutex.lock_safe();
                 let encounter_state = app_handle.state::<EncounterMutex>();
-                let mut encounter_state = encounter_state.lock().unwrap();
+                let mut encounter_state = encounter_state.lock_safe();
                 let player_cache_mutex = app_handle.state::<PlayerCacheMutex>();
                 for aoi_sync_delta in sync_near_delta_info.delta_infos {
                     if process_aoi_sync_delta(

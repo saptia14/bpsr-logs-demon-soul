@@ -11,6 +11,8 @@
 	);
 	const isHealActive = $derived(page.url.pathname.startsWith('/heal'));
 	const isOptimizerActive = $derived(page.url.pathname.startsWith('/optimizer'));
+	const isHistoryActive = $derived(page.url.pathname.startsWith('/history'));
+	const isChatActive = $derived(page.url.pathname.startsWith('/chat'));
 
 	function navigateToDps() {
 		goto('/');
@@ -22,6 +24,14 @@
 
 	function navigateToOptimizer() {
 		goto('/optimizer');
+	}
+
+	function navigateToHistory() {
+		goto('/history');
+	}
+
+	function navigateToChat() {
+		goto('/chat');
 	}
 </script>
 
@@ -62,6 +72,28 @@
 			onclick={navigateToOptimizer}
 		>
 			MODULES
+		</button>
+		<button
+			class={cn(
+				'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+				isHistoryActive
+					? 'bg-primary text-primary-foreground'
+					: 'bg-transparent hover:bg-accent hover:text-accent-foreground'
+			)}
+			onclick={navigateToHistory}
+		>
+			HISTORY
+		</button>
+		<button
+			class={cn(
+				'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+				isChatActive
+					? 'bg-primary text-primary-foreground'
+					: 'bg-transparent hover:bg-accent hover:text-accent-foreground'
+			)}
+			onclick={navigateToChat}
+		>
+			CHAT
 		</button>
 	</span>
 	<button

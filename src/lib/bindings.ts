@@ -32,6 +32,36 @@ export const commands = {
 	getModuleAttributes: () => __TAURI_INVOKE<AttrMeta[]>("get_module_attributes"),
 	// Run the built-in module optimizer over the local player's modules.
 	optimizeModules: (request: OptimizeRequest) => typedError<ModuleSolution[], string>(__TAURI_INVOKE("optimize_modules", { request })),
+	// Browse stored past encounters (most recent first).
+	getEncounterHistory: (limit: number) => typedError<EncounterSummary[], string>(__TAURI_INVOKE("get_encounter_history", { limit })),
+	// Full per-player / per-skill detail for one stored encounter.
+	getEncounterDetail: (id: number) => typedError<EncounterDetail, string>(__TAURI_INVOKE("get_encounter_detail", { id })),
+	// Delete a single stored encounter.
+	deleteEncounter: (id: number) => typedError<null, string>(__TAURI_INVOKE("delete_encounter", { id })),
+	// Delete all stored encounters.
+	clearEncounterHistory: () => typedError<null, string>(__TAURI_INVOKE("clear_encounter_history")),
+	/**
+	 *  Capture connectivity diagnostics: whether the game process is detected and
+	 *  which of its TCP ports are being tracked (Settings → Capture).
+	 */
+	getCaptureDiagnostics: () => __TAURI_INVOKE<CaptureDiagnostics>("get_capture_diagnostics"),
+	/**
+	 *  Recent chat messages, optionally filtered by channel id (empty = all).
+	 *  Union (Guild) is channel 4.
+	 */
+	getChatMessages: (channels: number[], limit: number) => __TAURI_INVOKE<ChatRow[]>("get_chat_messages", { channels, limit }),
+	// Clear the in-memory chat log.
+	clearChat: () => __TAURI_INVOKE<void>("clear_chat"),
+	/**
+	 *  Enable/disable forwarding Guild (Union) chat to the server-side dedupe relay.
+	 *  The endpoint + API key are baked into the build; this is just the on/off gate.
+	 */
+	setGuildRelay: (enabled: boolean) => __TAURI_INVOKE<void>("set_guild_relay", { enabled }),
+	/**
+	 *  Relay status for the UI: whether the build has the API key configured and
+	 *  whether the dedupe server is reachable (GET /health).
+	 */
+	getGuildRelayStatus: () => __TAURI_INVOKE<GuildRelayStatus>("get_guild_relay_status"),
 };
 
 /* Types */
@@ -46,6 +76,58 @@ export type AttrMeta = {
 export type AttrValue = {
 	name: string,
 	value: number,
+};
+
+// Connection diagnostics for the UI (Settings → Capture).
+export type CaptureDiagnostics = {
+	// Whether the game process is currently detected.
+	gameDetected: boolean,
+	// Number of running game processes found.
+	processCount: number,
+	// Game-owned local TCP ports (sorted).
+	ports: number[],
+};
+
+// Row shipped to the UI.
+export type ChatRow = {
+	id: number,
+	channel: number,
+	channelName: string,
+	senderUid: number,
+	senderName: string,
+	senderLevel: number,
+	msgType: number,
+	text: string,
+	timestamp: number,
+};
+
+export type EncounterDetail = {
+	summary: EncounterSummary,
+	players: StoredPlayer[],
+};
+
+export type EncounterSummary = {
+	id: number,
+	createdAt: number,
+	durationMs: number,
+	totalDamage: number,
+	totalDps: number,
+	totalHealing: number,
+	totalHps: number,
+	mapId: number,
+	mapName: string,
+	reporterName: string,
+	topPlayerName: string,
+	playerCount: number,
+};
+
+/**
+ *  Relay status for the UI: whether the build has the API key and whether the
+ *  server `/health` endpoint is reachable.
+ */
+export type GuildRelayStatus = {
+	configured: boolean,
+	reachable: boolean,
 };
 
 export type HeaderInfo = {
@@ -145,6 +227,34 @@ export type SkillsWindow = {
 	skillRows: SkillRow[],
 	localPlayerUid: number,
 	topValue: number,
+};
+
+export type StoredPlayer = {
+	uid: number,
+	name: string,
+	className: string,
+	classSpecName: string,
+	abilityScore: number,
+	totalDamage: number,
+	totalHealing: number,
+	hits: number,
+	critHits: number,
+	critValue: number,
+	luckyHits: number,
+	luckyValue: number,
+	skills: StoredSkill[],
+};
+
+export type StoredSkill = {
+	uid: number,
+	name: string,
+	totalDamage: number,
+	totalHealing: number,
+	hits: number,
+	critHits: number,
+	critValue: number,
+	luckyHits: number,
+	luckyValue: number,
 };
 
 /* Tauri Specta runtime */
