@@ -28,12 +28,12 @@
 	style={`background-color: oklch(from var(--background) l c h / ${SETTINGS.accessibility.state.transparencyOpacity / 100});`}
 >
 	<Tabs.Root bind:value={activeTab} class="w-full">
-		<Tabs.List class="mb-4">
+		<Tabs.List class="settings-tabs mb-4">
 			{#each settingsTabs as settingsTab (settingsTab.id)}
 				<Tabs.Trigger value={settingsTab.id}>{settingsTab.label}</Tabs.Trigger>
 			{/each}
 		</Tabs.List>
-		<div class="settings-cards space-y-4">
+		<div class="settings-cards space-y-3">
 			<General />
 			<Live />
 			<Capture />
@@ -44,7 +44,35 @@
 </div>
 
 <style>
+	/* HUD settings cards */
 	:global(.settings-cards [data-slot='card']) {
-		background-color: oklch(from var(--card) l c h / var(--card-opacity, 0.6));
+		background-color: oklch(from var(--bg-2) l c h / var(--card-opacity, 0.85));
+		border: 1px solid var(--line);
+		border-radius: var(--radius-token);
+	}
+	/* HUD tab triggers (segmented, cyan when active) */
+	:global(.settings-tabs) {
+		background: transparent !important;
+		gap: 2px;
+		flex-wrap: wrap;
+		height: auto;
+	}
+	:global(.settings-tabs [data-slot='tabs-trigger']) {
+		border-radius: 7px;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		color: var(--tx-2);
+		background: transparent;
+		border: none;
+		box-shadow: none;
+	}
+	:global(.settings-tabs [data-slot='tabs-trigger']:hover) {
+		color: var(--tx-0);
+		background: var(--bg-3);
+	}
+	:global(.settings-tabs [data-slot='tabs-trigger'][data-state='active']) {
+		color: var(--ac-bright) !important;
+		background: var(--ac-tint) !important;
 	}
 </style>

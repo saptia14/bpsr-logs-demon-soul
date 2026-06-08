@@ -3,105 +3,53 @@
 	import { goto } from '$app/navigation';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { openUrl } from '@tauri-apps/plugin-opener';
-	import { cn } from '$lib/utils';
 	import { SETTINGS } from '$lib/settings-store';
 
-	const isDpsActive = $derived(
-		page.url.pathname === '/' || page.url.pathname.startsWith('/skills')
-	);
-	const isHealActive = $derived(page.url.pathname.startsWith('/heal'));
-	const isOptimizerActive = $derived(page.url.pathname.startsWith('/optimizer'));
-	const isHistoryActive = $derived(page.url.pathname.startsWith('/history'));
-	const isChatActive = $derived(page.url.pathname.startsWith('/chat'));
+	import ActivityIcon from 'virtual:icons/lucide/activity';
+	import HeartIcon from 'virtual:icons/lucide/heart';
+	import LayoutGridIcon from 'virtual:icons/lucide/layout-grid';
+	import HistoryIcon from 'virtual:icons/lucide/history';
+	import MessageSquareIcon from 'virtual:icons/lucide/message-square';
 
-	function navigateToDps() {
-		goto('/');
+	const tabs = [
+		{ id: 'dps', label: 'DPS', path: '/', icon: ActivityIcon },
+		{ id: 'heal', label: 'Heal', path: '/heal', icon: HeartIcon },
+		{ id: 'modules', label: 'Modules', path: '/optimizer', icon: LayoutGridIcon },
+		{ id: 'history', label: 'History', path: '/history', icon: HistoryIcon },
+		{ id: 'chat', label: 'Chat', path: '/chat', icon: MessageSquareIcon }
+	];
+
+	function isActive(id: string): boolean {
+		const p = page.url.pathname;
+		if (id === 'dps') return p === '/' || p.startsWith('/skills');
+		if (id === 'heal') return p.startsWith('/heal');
+		if (id === 'modules') return p.startsWith('/optimizer');
+		if (id === 'history') return p.startsWith('/history');
+		if (id === 'chat') return p.startsWith('/chat');
+		return false;
 	}
 
-	function navigateToHeal() {
-		goto('/heal');
-	}
-
-	function navigateToOptimizer() {
-		goto('/optimizer');
-	}
-
-	function navigateToHistory() {
-		goto('/history');
-	}
-
-	function navigateToChat() {
-		goto('/chat');
-	}
+	const opacity = $derived(SETTINGS.accessibility.state.transparencyOpacity / 100);
 </script>
 
 <footer
-	class="sticky bottom-0 z-10 flex h-7 items-center justify-between border-t px-1.5"
-	style={`background-color: oklch(from var(--card) l c h / ${SETTINGS.accessibility.state.transparencyOpacity / 100});`}
+	class="hud-tabbar"
+	style={`background: oklch(from var(--bg-1) l c h / ${opacity});`}
 >
-	<span class="flex h-full items-center gap-1">
-		<button
-			class={cn(
-				'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
-				isDpsActive
-					? 'bg-primary text-primary-foreground'
-					: 'bg-transparent hover:bg-accent hover:text-accent-foreground'
-			)}
-			onclick={navigateToDps}
-		>
-			DPS
+	{#each tabs as tab (tab.id)}
+		{@const Icon = tab.icon}
+		<button class="hud-tab" class:active={isActive(tab.id)} onclick={() => goto(tab.path)}>
+			<Icon class="size-3.5" />
+			{tab.label}
 		</button>
-		<button
-			class={cn(
-				'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
-				isHealActive
-					? 'bg-primary text-primary-foreground'
-					: 'bg-transparent hover:bg-accent hover:text-accent-foreground'
-			)}
-			onclick={navigateToHeal}
-		>
-			HEAL
-		</button>
-		<button
-			class={cn(
-				'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
-				isOptimizerActive
-					? 'bg-primary text-primary-foreground'
-					: 'bg-transparent hover:bg-accent hover:text-accent-foreground'
-			)}
-			onclick={navigateToOptimizer}
-		>
-			MODULES
-		</button>
-		<button
-			class={cn(
-				'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
-				isHistoryActive
-					? 'bg-primary text-primary-foreground'
-					: 'bg-transparent hover:bg-accent hover:text-accent-foreground'
-			)}
-			onclick={navigateToHistory}
-		>
-			HISTORY
-		</button>
-		<button
-			class={cn(
-				'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
-				isChatActive
-					? 'bg-primary text-primary-foreground'
-					: 'bg-transparent hover:bg-accent hover:text-accent-foreground'
-			)}
-			onclick={navigateToChat}
-		>
-			CHAT
-		</button>
-	</span>
+	{/each}
+	<span class="flex-1"></span>
 	<button
 		type="button"
-		class="px-1.5 text-xs tracking-tighter text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-		onclick={() => openUrl('https://discord.gg/3UTC4pfCyC')}
-		aria-label="Open BPSR Logs Discord"
+		class="hud-tabbar-ver"
+		onclick={() => openUrl('https://discord.gg/6zXd7hf9KY')}
+		aria-label="Open DemonSoul Discord"
 	>
-		BPSR Logs v{#await getVersion()}X.Y.Z{:then version}{version}{/await}
+		<span class="pip"></span>DemonSoul v{#await getVersion()}0.0.0{:then version}{version}{/await}
 	</button>
 </footer>

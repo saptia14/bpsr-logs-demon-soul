@@ -18,13 +18,17 @@ const DEFAULT_SETTINGS = {
 		showOthersName: "Show Others' Name", // ["Show Others' Name", "Show Others' Class", "Hide Others' Name"]
 		showYourAbilityScore: true,
 		showOthersAbilityScore: true,
-		resetElapsed: 60,
-		shortenAbilityScore: false,
+		resetElapsed: 10,
+		shortenAbilityScore: true,
 		bossOnly: false,
-		autostart: true
+		autostart: true,
+		relativeToTopDPSPlayer: true,
+		relativeToTopDPSSkill: true,
+		relativeToTopHealPlayer: false,
+		relativeToTopHealSkill: false
 	},
 	accessibility: {
-		transparencyOpacity: 60,
+		transparencyOpacity: 100,
 		theme: 'dark' // 'dark' | 'light'
 	},
 	shortcuts: {

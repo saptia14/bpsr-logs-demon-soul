@@ -6,29 +6,23 @@ import { writeText, writeImage } from '@tauri-apps/plugin-clipboard-manager';
 import { image } from '@tauri-apps/api';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
-// Theme-aware class colors using oklch
-// Colors match class themes: healers (green), tanks (brown/yellow), DPS (red/ice/cyan/purple)
-export const classColors: Record<string, { dark: string; light: string }> = {
-	// Healers - greenish tones
-	'Beat Performer': { dark: 'oklch(0.55 0.18 145)', light: 'oklch(0.45 0.18 145)' },
-	'Verdant Oracle': { dark: 'oklch(0.60 0.20 130)', light: 'oklch(0.50 0.20 130)' },
-	// Tanks - brownish and yellowish
-	'Heavy Guardian': { dark: 'oklch(0.50 0.10 50)', light: 'oklch(0.40 0.10 50)' },
-	'Shield Knight': { dark: 'oklch(0.65 0.15 85)', light: 'oklch(0.55 0.15 85)' },
-	// DPS - red, ice, cyan, purple
-	Marksman: { dark: 'oklch(0.55 0.20 25)', light: 'oklch(0.45 0.20 25)' },
-	'Frost Mage': { dark: 'oklch(0.70 0.12 220)', light: 'oklch(0.60 0.12 220)' },
-	'Wind Knight': { dark: 'oklch(0.60 0.18 200)', light: 'oklch(0.50 0.18 200)' },
-	'Twin Striker': { dark: 'oklch(0.78 0.16 75)', light: 'oklch(0.68 0.16 75)' },
-	Stormblade: { dark: 'oklch(0.55 0.22 280)', light: 'oklch(0.45 0.22 280)' }
+// Tactical HUD class colors (from design/project/bpsr/tokens.css).
+// Each resolves to a CSS variable defined in app.css.
+export const classColors: Record<string, string> = {
+	Marksman: 'var(--c-red)',
+	Stormblade: 'var(--c-purple)',
+	'Frost Mage': 'var(--c-blue)',
+	'Wind Knight': 'var(--c-cyan)',
+	'Twin Striker': 'var(--c-gold)',
+	'Beat Performer': 'var(--c-green)',
+	'Verdant Oracle': 'var(--c-emerald)',
+	'Heavy Guardian': 'var(--c-brown)',
+	'Shield Knight': 'var(--c-amber)'
 };
 
+/** Solid class color (used as the row `--rc` and bar accent). */
 export function getClassColor(className: string): string {
-	const isLight = document.documentElement.classList.contains('light');
-	const color =
-		classColors[className]?.[isLight ? 'light' : 'dark'] ??
-		(isLight ? 'oklch(0.50 0.15 320)' : 'oklch(0.60 0.15 320)');
-	return `oklch(from ${color} l c h / 0.5)`;
+	return classColors[className] ?? 'var(--tx-2)';
 }
 
 export function getClassIcon(className: string): string {

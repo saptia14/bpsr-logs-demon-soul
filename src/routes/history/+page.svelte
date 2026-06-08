@@ -1,16 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		commands,
-		type EncounterSummary,
-		type EncounterDetail,
-		type StoredPlayer
-	} from '$lib/bindings';
+	import { commands, type EncounterSummary, type EncounterDetail } from '$lib/bindings';
 	import { getClassColor, getClassIcon } from '$lib/utils.svelte';
-	import { SETTINGS } from '$lib/settings-store';
 	import AbbreviatedNumber from '$lib/components/abbreviated-number.svelte';
 	import TrashIcon from 'virtual:icons/lucide/trash-2';
-	import ChevronLeftIcon from 'virtual:icons/lucide/chevron-left';
 	import RefreshIcon from 'virtual:icons/lucide/refresh-cw';
 
 	let history = $state<EncounterSummary[]>([]);
@@ -25,198 +18,124 @@
 		loading = true;
 		error = '';
 		const res = await commands.getEncounterHistory(200);
-		if (res.status === 'ok') {
-			history = res.data;
-		} else {
-			error = res.error;
-		}
+		if (res.status === 'ok') history = res.data;
+		else error = res.error;
 		loading = false;
 	}
-
 	async function openDetail(id: number) {
 		expandedUid = null;
 		const res = await commands.getEncounterDetail(id);
-		if (res.status === 'ok') {
-			detail = res.data;
-		} else {
-			error = res.error;
-		}
+		if (res.status === 'ok') detail = res.data;
+		else error = res.error;
 	}
-
 	async function removeOne(id: number, e: MouseEvent) {
 		e.stopPropagation();
 		await commands.deleteEncounter(id);
 		history = history.filter((h) => h.id !== id);
 	}
-
 	async function clearAll() {
 		if (!history.length) return;
 		await commands.clearEncounterHistory();
 		history = [];
 		detail = null;
 	}
-
 	function fmtDate(ms: number): string {
-		const d = new Date(ms);
-		return d.toLocaleString(undefined, {
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 	}
-
 	function fmtDuration(ms: number): string {
 		const total = Math.floor(ms / 1000);
-		const m = Math.floor(total / 60);
-		const s = total % 60;
-		return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+		return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 	}
-
-	function critRate(p: StoredPlayer): string {
-		if (p.hits <= 0) return '0%';
-		return `${Math.round((p.critHits / p.hits) * 100)}%`;
-	}
-
 	function maxOr1(nums: number[]): number {
 		return Math.max(1, ...nums);
 	}
 	const detailTop = $derived(detail ? maxOr1(detail.players.map((p) => p.totalDamage)) : 1);
-	const opacity = $derived(SETTINGS.accessibility.state.transparencyOpacity / 100);
 </script>
 
-<div class="flex h-full flex-col text-xs">
-	<!-- Toolbar -->
-	<div
-		class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b px-2 py-1"
-		style={`background-color: oklch(from var(--card) l c h / ${opacity});`}
-	>
-		{#if detail}
-			<button
-				class="flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium hover:bg-accent"
-				onclick={() => (detail = null)}
-			>
-				<ChevronLeftIcon class="size-3.5" /> Back
-			</button>
-			<span class="truncate font-semibold">{detail.summary.mapName}</span>
-			<span class="text-muted-foreground">{fmtDuration(detail.summary.durationMs)}</span>
-		{:else}
-			<span class="font-semibold">Encounter History</span>
-			<span class="flex items-center gap-1">
-				<button
-					class="flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent"
-					onclick={loadHistory}
-					aria-label="Refresh"
-				>
-					<RefreshIcon class="size-3.5" />
-				</button>
-				<button
-					class="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-destructive hover:bg-destructive/15"
-					onclick={clearAll}
-					aria-label="Clear all history"
-				>
-					<TrashIcon class="size-3.5" /> Clear
-				</button>
-			</span>
-		{/if}
-	</div>
-
-	<div class="min-h-0 flex-1 overflow-y-auto">
-		{#if error}
-			<p class="p-3 text-center text-destructive">{error}</p>
-		{:else if loading}
-			<p class="p-3 text-center text-muted-foreground">Loading…</p>
-		{:else if detail}
-			<!-- Detail: per-player breakdown -->
-			<table class="w-full table-fixed">
-				<tbody>
-					{#each detail.players as p (p.uid)}
-						<tr
-							class="relative h-7 cursor-pointer overflow-hidden border-b hover:bg-accent/40"
-							onclick={() => (expandedUid = expandedUid === p.uid ? null : p.uid)}
-						>
-							<td class="relative z-10 w-7 pl-1">
-								<img src={getClassIcon(p.className)} alt={p.className} class="size-5" />
-							</td>
-							<td class="relative z-10 truncate text-left">
-								<span class="font-medium">{p.name}</span>
-								<span class="text-muted-foreground">{p.classSpecName || p.className}</span>
-							</td>
-							<td class="relative z-10 w-16 text-right text-muted-foreground">{critRate(p)} cr</td>
-							<td class="relative z-10 w-20 pr-2 text-right font-semibold">
-								<AbbreviatedNumber num={p.totalDamage} />
-							</td>
-							<td
-								class="pointer-events-none absolute top-0 left-0 h-7"
-								style="background-color: {getClassColor(p.className)}; width: {(p.totalDamage /
-									detailTop) *
-									100}%; opacity: {Math.max(0.3, opacity)};"
-							></td>
-						</tr>
-						{#if expandedUid === p.uid}
-							{@const skillTop = Math.max(
-								1,
-								...p.skills.map((s) => s.totalDamage + s.totalHealing)
-							)}
-							{#each p.skills as s (s.uid)}
-								<tr class="relative h-6 overflow-hidden bg-muted/30">
-									<td></td>
-									<td class="relative z-10 truncate pl-1 text-left text-muted-foreground"
-										>{s.name}</td
-									>
-									<td class="relative z-10 text-right text-muted-foreground">{s.hits} hits</td>
-									<td class="relative z-10 w-20 pr-2 text-right">
-										<AbbreviatedNumber num={s.totalDamage + s.totalHealing} />
-									</td>
-									<td
-										class="pointer-events-none absolute top-0 left-0 h-6 bg-foreground/10"
-										style="width: {((s.totalDamage + s.totalHealing) / skillTop) * 100}%;"
-									></td>
-								</tr>
-							{/each}
-						{/if}
-					{/each}
-				</tbody>
-			</table>
-		{:else if history.length === 0}
-			<p class="p-4 text-center text-muted-foreground">
-				No saved encounters yet. Fight something — every encounter is stored automatically.
-			</p>
-		{:else}
-			<!-- Master: list of encounters -->
-			{#each history as h (h.id)}
+<div class="flex h-full flex-col hud-anim">
+	{#if detail}
+		<div class="hud-shead">
+			<button class="hud-gbtn" onclick={() => (detail = null)}>← Back</button>
+			<span class="flex-1"></span>
+			<h2 class="truncate">{detail.summary.mapName}</h2>
+			<span class="sub">{fmtDuration(detail.summary.durationMs)}</span>
+		</div>
+		<div class="min-h-0 flex-1 overflow-y-auto">
+			{#each detail.players as p (p.uid)}
+				{@const rc = getClassColor(p.className)}
 				<div
-					class="flex w-full cursor-pointer items-center gap-2 border-b px-2 py-1.5 text-left hover:bg-accent/40"
+					class="hud-prow"
+					style={`grid-template-columns:1fr 64px 76px; --rc:${rc}`}
 					role="button"
 					tabindex="0"
-					onclick={() => openDetail(h.id)}
-					onkeydown={(e) => e.key === 'Enter' && openDetail(h.id)}
+					onclick={() => (expandedUid = expandedUid === p.uid ? null : p.uid)}
+					onkeydown={(e) => e.key === 'Enter' && (expandedUid = expandedUid === p.uid ? null : p.uid)}
 				>
-					<span class="flex w-12 shrink-0 flex-col items-start">
-						<span class="font-mono text-muted-foreground">{fmtDuration(h.durationMs)}</span>
-						<span class="text-tiny text-muted-foreground">{fmtDate(h.createdAt)}</span>
-					</span>
-					<span class="flex min-w-0 flex-1 flex-col">
-						<span class="truncate font-medium">{h.mapName}</span>
-						<span class="truncate text-tiny text-muted-foreground">
-							{h.playerCount} players · top {h.topPlayerName}
+					<div class="fill" style={`width:${(p.totalDamage / detailTop) * 100}%`}></div>
+					<div class="hud-pl-lead">
+						<span class="hud-emblem"><img src={getClassIcon(p.className)} alt={p.className} /></span>
+						<span class="hud-pname">
+							<span class="nm">{p.name}</span>
+							<span class="cls">{p.classSpecName || p.className}</span>
 						</span>
-					</span>
-					<span class="flex shrink-0 flex-col items-end">
-						<span class="font-semibold"><AbbreviatedNumber num={h.totalDps} />/s</span>
-						<span class="text-tiny text-muted-foreground"
-							><AbbreviatedNumber num={h.totalDamage} /></span
-						>
-					</span>
-					<button
-						class="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-						onclick={(e) => removeOne(h.id, e)}
-						aria-label="Delete encounter"
-					>
-						<TrashIcon class="size-3.5" />
-					</button>
+					</div>
+					<div class="hud-pm"><span class="pct dim">{p.hits > 0 ? Math.round((p.critHits / p.hits) * 100) : 0}% cr</span></div>
+					<div class="hud-pm accent"><span class="big"><AbbreviatedNumber num={p.totalDamage} /></span></div>
 				</div>
+				{#if expandedUid === p.uid}
+					{@const skTop = maxOr1(p.skills.map((s) => s.totalDamage + s.totalHealing))}
+					{#each p.skills as s (s.uid)}
+						<div class="hud-skrow" style="grid-template-columns:1fr 56px 56px; background:rgba(255,255,255,0.015)">
+							<div class="fill" style={`width:${((s.totalDamage + s.totalHealing) / skTop) * 100}%; background:linear-gradient(90deg, color-mix(in oklab, ${rc} 18%, transparent), transparent); border-color:${rc}`}></div>
+							<div class="hud-sk-id"><div class="nm">{s.name}</div><div class="sub">{s.hits} hits</div></div>
+							<div class="hud-sk-m"><div class="v">{s.hits}</div><div class="l">hits</div></div>
+							<div class="hud-sk-m"><div class="v"><AbbreviatedNumber num={s.totalDamage + s.totalHealing} /></div><div class="l">total</div></div>
+						</div>
+					{/each}
+				{/if}
 			{/each}
-		{/if}
-	</div>
+		</div>
+	{:else}
+		<div class="hud-shead">
+			<h2>Encounter History</h2>
+			<span class="flex-1"></span>
+			<button class="hud-gbtn" onclick={loadHistory} aria-label="Refresh"><RefreshIcon class="size-3.5" /></button>
+			<button class="hud-gbtn danger" onclick={clearAll}><TrashIcon class="size-3.5" /> Clear</button>
+		</div>
+		<div class="hud-hist-body min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+			{#if error}
+				<p class="p-4 text-center" style="color:var(--bad)">{error}</p>
+			{:else if loading}
+				<p class="p-4 text-center" style="color:var(--tx-2)">Loading…</p>
+			{:else if history.length === 0}
+				<div class="hud-empty"><p>No saved encounters yet. Every fight is stored automatically.</p></div>
+			{:else}
+				{#each history as h (h.id)}
+					<div
+						class="hud-enc"
+						role="button"
+						tabindex="0"
+						onclick={() => openDetail(h.id)}
+						onkeydown={(e) => e.key === 'Enter' && openDetail(h.id)}
+					>
+						<div class="hud-enc-time">
+							<div class="t">{fmtDuration(h.durationMs)}</div>
+							<div class="d">{fmtDate(h.createdAt)}</div>
+						</div>
+						<div class="hud-enc-id">
+							<div class="nm"><span class="zone" style="width:6px;height:6px;border-radius:2px;background:var(--ac);flex-shrink:0"></span>{h.mapName}</div>
+							<div class="meta"><b>{h.playerCount}</b> players · top <b>{h.topPlayerName}</b></div>
+						</div>
+						<div class="hud-enc-score">
+							<div class="v"><AbbreviatedNumber num={h.totalDps} /><em>/s</em></div>
+							<div class="tot"><AbbreviatedNumber num={h.totalDamage} /></div>
+						</div>
+						<button class="hud-enc-del" onclick={(e) => removeOne(h.id, e)} aria-label="Delete encounter">
+							<TrashIcon class="size-3.5" />
+						</button>
+					</div>
+				{/each}
+			{/if}
+		</div>
+	{/if}
 </div>

@@ -10,8 +10,6 @@
 	import PointerIcon from 'virtual:icons/lucide/pointer';
 	import SettingsIcon from 'virtual:icons/lucide/settings';
 	import HomeIcon from 'virtual:icons/lucide/home';
-	import SunIcon from 'virtual:icons/lucide/sun';
-	import MoonIcon from 'virtual:icons/lucide/moon';
 
 	import { onMount, tick } from 'svelte';
 	import { commands, type HeaderInfo } from '$lib/bindings';
@@ -27,10 +25,8 @@
 		const interval = setInterval(fetchData, 200);
 
 		const unlistenPromise = listen('request-screenshot', async () => {
-			console.log('Backend requested screenshot for webhook');
 			const bytes = await getScreenshotBytes(screenshotDiv);
 			if (bytes) {
-				// commands expected array
 				await commands.submitPendingWebhook(Array.from(bytes));
 			}
 		});
@@ -49,12 +45,11 @@
 				headerInfo.timeLastCombatPacketMs > 0 &&
 				Date.now() - headerInfo.timeLastCombatPacketMs > SETTINGS.general.state.resetElapsed * 1000
 			) {
-				console.log(`Resetting as ${SETTINGS.general.state.resetElapsed}s has passed.`);
 				const bytes = await getScreenshotBytes(screenshotDiv);
 				if (bytes) {
-				    await commands.resetEncounterWithImage(Array.from(bytes));
+					await commands.resetEncounterWithImage(Array.from(bytes));
 				} else {
-				    await commands.resetEncounter();
+					await commands.resetEncounter();
 				}
 				headerInfo = await commands.getHeaderInfo();
 			}
@@ -67,7 +62,6 @@
 		const totalSeconds = Math.floor(Number(msElapsed) / 1000);
 		const minutes = Math.floor((totalSeconds % 3600) / 60);
 		const seconds = totalSeconds % 60;
-
 		return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 	}
 
@@ -78,62 +72,70 @@
 		timeLastCombatPacketMs: 0
 	});
 	let isEncounterPaused = $state(false);
-	let {
-		screenshotDiv
-	}: {
-		screenshotDiv?: HTMLElement;
-	} = $props();
+	let { screenshotDiv }: { screenshotDiv?: HTMLElement } = $props();
 	const appWindow = getCurrentWebviewWindow();
 
 	const isSettingsActive = $derived(page.url.pathname === '/settings');
-	const isLightMode = $derived(SETTINGS.accessibility.state.theme === 'light');
+	const opacity = $derived(SETTINGS.accessibility.state.transparencyOpacity / 100);
 
-	function toggleTheme() {
-		SETTINGS.accessibility.state.theme = isLightMode ? 'dark' : 'light';
-	}
+	// "Live" when combat happened recently (within the last ~3s).
+	const isLive = $derived(
+		!isEncounterPaused &&
+			headerInfo.timeLastCombatPacketMs > 0 &&
+			Date.now() - headerInfo.timeLastCombatPacketMs < 3000
+	);
 
 	function toggleSettings() {
-		if (isSettingsActive) {
-			goto('/');
-		} else {
-			goto('/settings');
-		}
+		goto(isSettingsActive ? '/' : '/settings');
 	}
 </script>
 
-<!-- justify-between to create left/right sides -->
 <header
 	data-tauri-drag-region
-	class="sticky top-0 z-10 flex h-7 w-full items-center justify-between border-b px-1"
-	style={`background-color: oklch(from var(--card) l c h / ${SETTINGS.accessibility.state.transparencyOpacity / 100});`}
+	class="hud-titlebar"
+	style={`background: oklch(from var(--bg-2) l c h / ${opacity});`}
 >
-	<!-- Left side -->
-	<span class="flex items-center gap-2 text-xs font-medium">
-		<span class="text-muted-foreground" {@attach tooltip(() => 'Time Elapsed')}>
+	<!-- Brand -->
+	<span class="hud-brand">
+		<span class="hud-brand-mark">
+			<svg
+				width="13"
+				height="13"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="#04181c"
+				stroke-width="3"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
+				<path d="M3 12h4l2.5 7 5-14L17 12h4" />
+			</svg>
+		</span>
+		<span class="hud-brand-name">BPSR<b> Logs</b></span>
+	</span>
+
+	<!-- Live combat readout -->
+	<span class="hud-combat">
+		<span class="hud-combat-timer" {@attach tooltip(() => 'Time Elapsed')}>
+			<span class="hud-live-dot" class:paused={!isLive}></span>
 			{formatElapsed(headerInfo.elapsedMs)}
 		</span>
-		<span class="flex items-center gap-1">
-			<span class="text-muted-foreground" {@attach tooltip(() => 'Total Damage Dealt')}>
-				T.DMG
-			</span>
-			<span class="font-semibold" {@attach tooltip(() => headerInfo.totalDmg.toLocaleString())}>
-				<AbbreviatedNumber num={Number(headerInfo.totalDmg)} />
-			</span>
+		<span class="hud-tstat" {@attach tooltip(() => headerInfo.totalDmg.toLocaleString())}>
+			<span class="k">T.DMG</span>
+			<span class="v"><AbbreviatedNumber num={Number(headerInfo.totalDmg)} /></span>
 		</span>
-		<span class="flex items-center gap-1">
-			<span class="text-muted-foreground" {@attach tooltip(() => 'Total Damage per Second')}>
-				T.DPS
-			</span>
-			<span class="font-semibold" {@attach tooltip(() => headerInfo.totalDps.toLocaleString())}>
-				<AbbreviatedNumber num={headerInfo.totalDps} />
-			</span>
+		<span class="hud-tstat" {@attach tooltip(() => headerInfo.totalDps.toLocaleString())}>
+			<span class="k">T.DPS</span>
+			<span class="v"><AbbreviatedNumber num={headerInfo.totalDps} /></span>
 		</span>
 	</span>
-	<!-- Right side -->
-	<span class="flex gap-0.5">
-		<!-- TODO: add responsive clicks, toaster -->
+
+	<span class="flex-1"></span>
+
+	<!-- Window tools -->
+	<span class="hud-tools">
 		<button
-			class="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+			class="hud-tool"
 			onclick={async () => {
 				await tick();
 				await takeScreenshot(screenshotDiv);
@@ -143,14 +145,14 @@
 			<CameraIcon class="size-4" />
 		</button>
 		<button
-			class="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+			class="hud-tool"
 			onclick={async () => {
 				await tick();
 				const bytes = await getScreenshotBytes(screenshotDiv);
 				if (bytes) {
-				    await commands.resetEncounterWithImage(Array.from(bytes));
+					await commands.resetEncounterWithImage(Array.from(bytes));
 				} else {
-				    await commands.resetEncounter();
+					await commands.resetEncounter();
 				}
 				headerInfo = await commands.getHeaderInfo();
 			}}
@@ -159,7 +161,8 @@
 			<TimerResetIcon class="size-4" />
 		</button>
 		<button
-			class="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+			class="hud-tool"
+			class:on={isEncounterPaused}
 			onclick={() => {
 				commands.togglePauseEncounter();
 				isEncounterPaused = !isEncounterPaused;
@@ -172,25 +175,16 @@
 			{/if}
 		</button>
 		<button
-			class="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+			class="hud-tool"
 			onclick={() => appWindow.setIgnoreCursorEvents(true)}
-			{@attach tooltip(() => 'Clickthrough')}
+			{@attach tooltip(() => 'Click-through')}
 		>
 			<PointerIcon class="size-4" />
 		</button>
+		<span class="div"></span>
 		<button
-			class="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
-			onclick={toggleTheme}
-			{@attach tooltip(() => (isLightMode ? 'Theme: Light' : 'Theme: Dark'))}
-		>
-			{#if isLightMode}
-				<SunIcon class="size-4" />
-			{:else}
-				<MoonIcon class="size-4" />
-			{/if}
-		</button>
-		<button
-			class="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+			class="hud-tool"
+			class:on={isSettingsActive}
 			onclick={toggleSettings}
 			{@attach tooltip(() => (isSettingsActive ? 'Home' : 'Settings'))}
 		>
@@ -200,18 +194,15 @@
 				<SettingsIcon class="size-4" />
 			{/if}
 		</button>
+		<span class="div"></span>
 		<button
-			class="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+			class="hud-tool"
 			onclick={() => appWindow.hide()}
 			{@attach tooltip(() => 'Minimize')}
 		>
 			<MinusIcon class="size-4" />
 		</button>
-		<button
-			class="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
-			onclick={() => commands.quitApp()}
-			{@attach tooltip(() => 'Quit')}
-		>
+		<button class="hud-tool danger" onclick={() => commands.quitApp()} {@attach tooltip(() => 'Quit')}>
 			<XIcon class="size-4" />
 		</button>
 	</span>

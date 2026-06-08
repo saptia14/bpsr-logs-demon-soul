@@ -16,7 +16,7 @@
 		}
 	}
 
-	// Channels to display. Union (Guild) = 4 is the default focus.
+	// Union (Guild) = 4 is the default focus. Colors from the HUD channel palette.
 	const ALL_CHANNELS: { id: number; label: string; color: string }[] = [
 		{ id: 4, label: 'Union', color: 'rgb(255,214,0)' },
 		{ id: 1, label: 'World', color: 'rgb(100,199,255)' },
@@ -25,10 +25,9 @@
 		{ id: 6, label: 'Group', color: 'rgb(173,217,230)' },
 		{ id: 99, label: 'System', color: 'rgb(255,99,71)' }
 	];
-	const colorOf = (channel: number) =>
-		ALL_CHANNELS.find((c) => c.id === channel)?.color ?? 'inherit';
+	const colorOf = (channel: number) => ALL_CHANNELS.find((c) => c.id === channel)?.color ?? 'var(--tx-1)';
 
-	let selected = $state<number[]>([4]); // Union by default
+	let selected = $state<number[]>([4]);
 	let messages = $state<ChatRow[]>([]);
 	let showSettings = $state(false);
 	let scrollEl: HTMLDivElement | undefined = $state();
@@ -47,118 +46,83 @@
 			scrollEl?.scrollTo({ top: scrollEl.scrollHeight });
 		}
 	}
-
 	function toggleChannel(id: number) {
 		selected = selected.includes(id) ? selected.filter((c) => c !== id) : [...selected, id];
 		fetchData();
 	}
-
 	function fmtTime(unixSecs: number): string {
-		return new Date(unixSecs * 1000).toLocaleTimeString(undefined, {
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return new Date(unixSecs * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 	}
-
-	const opacity = $derived(SETTINGS.accessibility.state.transparencyOpacity / 100);
 </script>
 
-<div class="flex h-full flex-col text-xs">
-	<!-- Toolbar -->
-	<div
-		class="sticky top-0 z-10 flex items-center gap-1 border-b px-1.5 py-1"
-		style={`background-color: oklch(from var(--card) l c h / ${opacity});`}
-	>
+<div class="flex h-full flex-col hud-anim">
+	<!-- Channel filter row -->
+	<div class="hud-chat-channels flex items-center gap-1 px-3 pt-3 pb-2">
 		{#each ALL_CHANNELS as ch (ch.id)}
 			<button
-				class="rounded px-1.5 py-0.5 font-medium transition-colors"
-				style={selected.includes(ch.id) ? `background-color:${ch.color}33;color:${ch.color}` : ''}
-				class:text-muted-foreground={!selected.includes(ch.id)}
+				class="hud-cch"
+				class:on={selected.includes(ch.id)}
+				style={selected.includes(ch.id) ? `color:${ch.color}` : ''}
 				onclick={() => toggleChannel(ch.id)}
 			>
-				{ch.label}
+				<span class="cdot" style={`background:${ch.color}`}></span>{ch.label}
 			</button>
 		{/each}
-		<span class="ml-auto flex items-center gap-0.5">
-			<button
-				class="rounded p-1 hover:bg-accent"
-				onclick={() => {
-					showSettings = !showSettings;
-					if (showSettings) refreshStatus();
-				}}
-				aria-label="Relay settings"
-			>
-				<SettingsIcon class="size-3.5" />
-			</button>
-			<button
-				class="rounded p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-				onclick={() => commands.clearChat().then(fetchData)}
-				aria-label="Clear chat log"
-			>
-				<TrashIcon class="size-3.5" />
-			</button>
-		</span>
+		<span class="flex-1"></span>
+		<button class="hud-tool" class:on={showSettings} onclick={() => { showSettings = !showSettings; if (showSettings) refreshStatus(); }} aria-label="Relay settings">
+			<SettingsIcon class="size-4" />
+		</button>
+		<button class="hud-tool danger" onclick={() => commands.clearChat().then(fetchData)} aria-label="Clear chat log">
+			<TrashIcon class="size-4" />
+		</button>
 	</div>
 
 	{#if showSettings}
-		<!-- Guild (Union) -> Discord dedupe relay config -->
-		<div
-			class="space-y-2 border-b px-2 py-2"
-			style={`background-color: oklch(from var(--card) l c h / ${opacity});`}
-		>
-			<label class="flex items-center justify-between gap-2">
-				<span class="font-medium">Relay Guild (Union) chat to Discord</span>
-				<input type="checkbox" bind:checked={SETTINGS.integration.state.guildChatRelayEnabled} />
-			</label>
-			<div class="flex items-center gap-3 text-tiny">
-				<span class="flex items-center gap-1">
-					<span
-						class="inline-block size-2 rounded-full {relayStatus.configured
-							? 'bg-green-500'
-							: 'bg-red-500'}"
-					></span>
-					API key {relayStatus.configured ? 'configured' : 'missing'}
-				</span>
-				<span class="flex items-center gap-1">
-					<span
-						class="inline-block size-2 rounded-full {relayStatus.reachable
-							? 'bg-green-500'
-							: 'bg-red-500'}"
-					></span>
-					Server {relayStatus.reachable ? 'reachable' : 'unreachable'}
-				</span>
-				<button class="ml-auto rounded px-1.5 py-0.5 hover:bg-accent" onclick={refreshStatus}>
-					Recheck
-				</button>
+		<div class="hud-scard" style="margin:0 12px 8px">
+			<div class="hud-srow" style="padding-top:0">
+				<div class="si">
+					<div class="lab">Relay Guild (Union) chat to Discord</div>
+					<div class="des">Posts <span style="font-family:var(--mono)">Name: text</span> via the shared dedupe server — one copy reaches Discord even if several guildmates run this.</div>
+				</div>
+				<button
+					class="hud-tgl"
+					class:on={SETTINGS.integration.state.guildChatRelayEnabled}
+					aria-label="Toggle guild relay"
+					onclick={() => (SETTINGS.integration.state.guildChatRelayEnabled = !SETTINGS.integration.state.guildChatRelayEnabled)}
+				></button>
 			</div>
-			<p class="text-tiny text-muted-foreground">
-				Guild text posts as <span class="font-mono">Name: text</span> via the shared dedupe server, so
-				only one copy reaches Discord even when several guildmates run this. Stickers, voice and images
-				aren't relayed (the game provides no media URL for them).
-			</p>
+			<div class="hud-srow" style="padding-bottom:0">
+				<div class="si flex items-center gap-3 text-tiny">
+					<span class="flex items-center gap-1.5">
+						<span class="cdot" style={`width:7px;height:7px;border-radius:99px;background:${relayStatus.configured ? 'var(--good)' : 'var(--bad)'}`}></span>
+						API key {relayStatus.configured ? 'configured' : 'missing'}
+					</span>
+					<span class="flex items-center gap-1.5">
+						<span class="cdot" style={`width:7px;height:7px;border-radius:99px;background:${relayStatus.reachable ? 'var(--good)' : 'var(--bad)'}`}></span>
+						Server {relayStatus.reachable ? 'reachable' : 'unreachable'}
+					</span>
+				</div>
+				<button class="hud-gbtn" onclick={refreshStatus}>Recheck</button>
+			</div>
 		</div>
 	{/if}
 
 	<!-- Messages -->
-	<div bind:this={scrollEl} class="min-h-0 flex-1 overflow-y-auto px-2 py-1">
+	<div bind:this={scrollEl} class="hud-chat-body min-h-0 flex-1 overflow-y-auto py-1">
 		{#if messages.length === 0}
-			<p class="p-4 text-center text-muted-foreground">
-				No messages yet for the selected channel(s).
-			</p>
+			<div class="hud-empty"><p>No messages yet for the selected channel(s).</p></div>
 		{:else}
 			{#each messages as m (m.id)}
-				<div class="flex gap-1.5 py-0.5 leading-snug">
-					<span class="shrink-0 text-tiny text-muted-foreground">{fmtTime(m.timestamp)}</span>
-					<span class="break-words">
+				<div class="hud-msg">
+					<span class="ts">{fmtTime(m.timestamp)}</span>
+					<span class="body">
 						<button
 							type="button"
-							class="cursor-pointer border-none bg-transparent p-0 font-semibold"
+							class="au cursor-pointer border-none bg-transparent p-0"
 							style={`color:${colorOf(m.channel)}`}
 							onclick={(e) => copyToClipboard(e, m.senderName)}
 							title={`#${m.senderUid} · Lv${m.senderLevel} · ${m.channelName}`}
-							>{m.senderName}</button
-						><span class="text-muted-foreground">:</span>
-						{m.text}
+						>{m.senderName}</button>{m.text}
 					</span>
 				</div>
 			{/each}

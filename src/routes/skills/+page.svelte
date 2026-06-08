@@ -1,32 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { commands, type SkillsWindow } from '$lib/bindings';
-	import { getClassColor } from '$lib/utils.svelte';
+	import { getClassColor, getClassIcon, getSkillIcon } from '$lib/utils.svelte';
 	import { page } from '$app/state';
-	import { createSvelteTable, FlexRender } from '$lib/svelte-table';
-	import {
-		dpsPlayersColumnDefs,
-		dpsSkillsColumnDefs,
-		healPlayersColumnDefs,
-		healSkillsColumnDefs
-	} from '$lib/table-info';
-	import { getCoreRowModel } from '@tanstack/table-core';
 	import { SETTINGS } from '$lib/settings-store';
+	import AbbreviatedNumber from '$lib/components/abbreviated-number.svelte';
 
-	// Validate playerUid and type from query params
+	const SKGRID = '26px 1fr 54px 50px 42px 44px';
+
 	const playerUidParam = page.url.searchParams.get('playerUid');
-	const playerUid: string =
-		playerUidParam && /^-?\d+$/.test(playerUidParam) ? playerUidParam : '-1';
-
+	const playerUid: string = playerUidParam && /^-?\d+$/.test(playerUidParam) ? playerUidParam : '-1';
 	const typeParam = page.url.searchParams.get('type');
 	const statType: 'dps' | 'heal' = typeParam === 'heal' ? 'heal' : 'dps';
-
-	const playersColumnDefs = statType === 'dps' ? dpsPlayersColumnDefs : healPlayersColumnDefs;
-	const skillsColumnDefs = statType === 'dps' ? dpsSkillsColumnDefs : healSkillsColumnDefs;
-	const settingsPath =
-		statType === 'dps'
-			? SETTINGS.live.dps.skillBreakdown.state
-			: SETTINGS.live.heal.skillBreakdown.state;
 
 	onMount(() => {
 		fetchData();
@@ -34,7 +19,7 @@
 		return () => clearInterval(interval);
 	});
 
-	let skillBreakdownWindow: SkillsWindow | undefined = $state(undefined);
+	let win = $state<SkillsWindow | undefined>(undefined);
 
 	async function fetchData() {
 		try {
@@ -43,121 +28,65 @@
 				: statType === 'dps'
 					? await commands.getDpsSkillWindow(playerUid)
 					: await commands.getHealSkillWindow(playerUid);
-			if (result.status !== 'ok') {
-				console.warn('Failed to get skill window: ', result.error);
-				return;
-			} else {
-				skillBreakdownWindow = result.data;
-			}
+			if (result.status === 'ok') win = result.data;
 		} catch (e) {
 			console.error('Error fetching data: ', e);
 		}
 	}
 
-	const inspectedPlayerTable = createSvelteTable({
-		get data() {
-			if (skillBreakdownWindow !== undefined) {
-				return [skillBreakdownWindow.inspectedPlayer];
-			} else {
-				return [];
-			}
-		},
-		columns: playersColumnDefs,
-		getCoreRowModel: getCoreRowModel(),
-		state: {
-			get columnVisibility() {
-				return settingsPath;
-			}
-		}
-	});
-
-	const skillBreakdownTable = createSvelteTable({
-		get data() {
-			if (skillBreakdownWindow !== undefined) {
-				return skillBreakdownWindow.skillRows;
-			} else {
-				return [];
-			}
-		},
-		columns: skillsColumnDefs,
-		getCoreRowModel: getCoreRowModel(),
-		state: {
-			get columnVisibility() {
-				return settingsPath;
-			}
-		}
-	});
+	const topSkill = $derived(
+		win ? Math.max(1, ...win.skillRows.map((s) => s.totalValue)) : 1
+	);
 </script>
 
 <svelte:window oncontextmenu={() => window.history.back()} />
 
-{#if skillBreakdownWindow !== undefined}
-	<div class="relative">
-		<table class="w-screen table-fixed">
-			<thead class="sticky top-0 z-10 h-6">
-				<tr
-					class="border-b"
-					style={`background-color: oklch(from var(--card) l c h / ${SETTINGS.accessibility.state.transparencyOpacity / 100});`}
-				>
-					{#each skillBreakdownTable.getHeaderGroups() as headerGroup (headerGroup.id)}
-						{#each headerGroup.headers as header (header.id)}
-							<th class={header.column.columnDef.meta?.class}
-								><FlexRender
-									content={header.column.columnDef.header ?? 'UNKNOWN HEADER'}
-									context={header.getContext()}
-								/></th
-							>
-						{/each}
-					{/each}
-				</tr>
-			</thead>
-			<tbody>
-				{#each inspectedPlayerTable.getRowModel().rows as row (row.id)}
-					<tr class="relative h-7 overflow-hidden bg-accent/20 px-2 py-1 text-center">
-						{#each row.getVisibleCells() as cell (cell.id)}
-							<td class="relative z-10"
-								><FlexRender
-									content={cell.column.columnDef.cell ?? 'UNKNOWN CELL'}
-									context={cell.getContext()}
-								/></td
-							>
-						{/each}
-						<td
-							class="pointer-events-none absolute top-0 left-0 h-7"
-							style="background-color: {getClassColor(
-								skillBreakdownWindow.inspectedPlayer.className
-							)}; width: 100vw; opacity: {Math.max(
-								0.3,
-								SETTINGS.accessibility.state.transparencyOpacity / 100
-							)}; z-index: 0;"
-						></td>
-					</tr>
-				{/each}
-				{#each skillBreakdownTable.getRowModel().rows as row (row.id)}
-					<tr
-						class="relative h-7 overflow-hidden px-2 py-1 text-center transition-colors hover:bg-accent/30"
-					>
-						{#each row.getVisibleCells() as cell (cell.id)}
-							<td class="relative z-10"
-								><FlexRender
-									content={cell.column.columnDef.cell ?? 'UNKNOWN CELL'}
-									context={cell.getContext()}
-								/></td
-							>
-						{/each}
-						<td
-							class="pointer-events-none absolute top-0 left-0 h-7"
-							style="background-color: {getClassColor(
-								skillBreakdownWindow.inspectedPlayer.className
-							)}; width: {(row.original.totalValue / skillBreakdownWindow.topValue) *
-								100}%; opacity: {Math.max(
-								0.3,
-								SETTINGS.accessibility.state.transparencyOpacity / 100
-							)}; z-index: 0;"
-						></td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
+{#if win}
+	{@const ip = win.inspectedPlayer}
+	{@const rc = getClassColor(ip.className)}
+	<div class="screen hud-anim flex h-full flex-col">
+		<div class="hud-shead" style="padding-bottom:0">
+			<button class="hud-gbtn" onclick={() => window.history.back()}>← Back</button>
+			<span class="flex-1"></span>
+			<span class="sub">{statType === 'heal' ? 'Healing' : 'Damage'} breakdown</span>
+		</div>
+
+		<div class="hud-pdetail-hero" style={`--rc:${rc}; margin-top:11px`}>
+			<span class="hud-emblem"><img src={getClassIcon(ip.className)} alt={ip.className} /></span>
+			<div class="hud-pdetail-id">
+				<div class="nm">{ip.name}</div>
+				<div class="meta">
+					<span class="cls">{ip.classSpecName || ip.className}</span>
+					{#if ip.abilityScore >= 0}<span class="gs">GS {Math.round(ip.abilityScore)}</span>{/if}
+				</div>
+			</div>
+			<div class="hud-pdetail-stats">
+				<div class="st">
+					<div class="k">{statType === 'heal' ? 'Total Heal' : 'Total DMG'}</div>
+					<div class="v"><AbbreviatedNumber num={ip.totalValue} /></div>
+				</div>
+				<div class="st">
+					<div class="k">{statType === 'heal' ? 'HPS' : 'DPS'}</div>
+					<div class="v ac"><AbbreviatedNumber num={ip.valuePerSec} /></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="min-h-0 flex-1 overflow-y-auto">
+			{#each win.skillRows as s (s.uid)}
+				<div class="hud-skrow" style={`grid-template-columns:${SKGRID}`}>
+					<div class="fill" style={`width:${(s.totalValue / topSkill) * 100}%`}></div>
+					<span class="hud-skicon"><img src={getSkillIcon(s.uid)} alt={s.name} /></span>
+					<div class="hud-sk-id">
+						<div class="nm">{s.name}</div>
+						<div class="sub">{s.hits} hits</div>
+					</div>
+					<div class="hud-sk-m"><div class="v"><AbbreviatedNumber num={s.totalValue} /></div><div class="l">total</div></div>
+					<div class="hud-sk-m"><div class="v"><AbbreviatedNumber num={s.valuePerSec} /></div><div class="l">/sec</div></div>
+					<div class="hud-sk-m"><div class="v" style="color:var(--ac-bright)">{s.critRate.toFixed(0)}%</div><div class="l">crit</div></div>
+					<div class="hud-sk-m"><div class="v">{s.valuePct.toFixed(0)}%</div><div class="l">share</div></div>
+				</div>
+			{/each}
+		</div>
 	</div>
 {/if}

@@ -1,7 +1,5 @@
 <script lang="ts">
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import SettingsButton from './settings-button.svelte';
 	import { commands, type CaptureDiagnostics } from '$lib/bindings';
 	import { onMount } from 'svelte';
 
@@ -24,70 +22,55 @@
 	}
 </script>
 
-<Tabs.Content value={SETTINGS_CATEGORY} class="space-y-4">
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Connection Status</Card.Title>
-		</Card.Header>
-		<Card.Content class="space-y-3 text-sm">
-			<div class="flex items-center gap-2">
+<Tabs.Content value={SETTINGS_CATEGORY}>
+	<div class="hud-scard">
+		<h3><span style="color:var(--ac)">◎</span> Connection Status</h3>
+		<div class="hud-srow">
+			<div class="si flex items-center gap-2">
 				<span
-					class="inline-block size-2.5 rounded-full {diag.gameDetected
-						? 'bg-green-500'
-						: 'bg-red-500'}"
+					class="inline-block"
+					style={`width:8px;height:8px;border-radius:99px;background:${diag.gameDetected ? 'var(--good)' : 'var(--bad)'};box-shadow:0 0 8px ${diag.gameDetected ? 'var(--good)' : 'var(--bad)'}`}
 				></span>
-				<span class="font-medium">
-					{diag.gameDetected ? 'Game process detected' : 'Game process not detected'}
-				</span>
+				<span class="lab">{diag.gameDetected ? 'Game process detected' : 'Game process not detected'}</span>
 				{#if diag.processCount > 1}
-					<span class="text-muted-foreground">({diag.processCount} clients)</span>
+					<span style="color:var(--tx-2);font-size:11px">({diag.processCount} clients)</span>
 				{/if}
 			</div>
-
-			<div>
-				<p class="text-muted-foreground">Tracked game TCP ports</p>
+		</div>
+		<div class="hud-srow" style="flex-direction:column;align-items:stretch">
+			<div class="si">
+				<div class="des">Tracked game TCP ports</div>
 				{#if diag.ports.length > 0}
-					<div class="mt-1 flex flex-wrap gap-1">
+					<div class="mt-2 flex flex-wrap gap-1.5">
 						{#each diag.ports as port (port)}
-							<span class="rounded bg-accent px-1.5 py-0.5 font-mono text-xs">{port}</span>
+							<span class="hud-mtag" style="background:var(--bg-3);color:var(--tx-1)">{port}</span>
 						{/each}
 					</div>
 				{:else}
-					<p class="mt-1 text-xs text-muted-foreground">
-						None yet — open the game and load into a zone.
-					</p>
+					<p class="mt-1.5 text-tiny" style="color:var(--tx-3)">None yet — open the game and load into a zone.</p>
 				{/if}
 			</div>
+		</div>
+		<div class="hud-srow">
+			<div class="si">
+				<div class="lab">Restart Packet Capture</div>
+				<div class="des">Reopen the capture handle. Use this if no data appears or after changing your VPN/network setup.</div>
+			</div>
+			<button class="hud-gbtn" onclick={() => commands.hardReset()}>Restart</button>
+		</div>
+	</div>
 
-			<p class="text-xs text-muted-foreground">
-				Ports are read from the OS for the game process (BPSR / BPSR_STEAM / BPSR_EPIC) and used to
-				identify the game's traffic — independent of which network adapter or IP a VPN uses.
-			</p>
-
-			<SettingsButton
-				onclick={() => commands.hardReset()}
-				buttonLabel="Restart"
-				label="Restart Packet Capture"
-				description="Reopen the capture handle. Use this if no data is appearing or after changing your VPN/network setup."
-			/>
-		</Card.Content>
-	</Card.Root>
-
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>VPN & ExitLag</Card.Title>
-		</Card.Header>
-		<Card.Content class="space-y-2 text-xs text-muted-foreground">
-			<p>
-				Capture uses the bundled <span class="font-medium text-foreground">WinDivert</span> driver — no
-				separate install is required. The game process is identified by its owning PID and ports, so VPNs
-				that change addressing are handled automatically for connection tracking.
-			</p>
-			<p>
-				If you use <span class="font-medium text-foreground">ExitLag</span> and see no data, enable
-				<span class="font-medium text-foreground">NDIS Legacy mode</span> in ExitLag's settings. If you
-				don't need a VPN to play, disabling it gives the most reliable capture.
-			</p>
-		</Card.Content>
-	</Card.Root>
+	<div class="hud-scard">
+		<h3><span style="color:var(--ac)">⚡</span> VPN &amp; ExitLag</h3>
+		<p class="set-sub" style="font-size:10.5px;color:var(--tx-2);line-height:1.5">
+			Capture uses the bundled <b style="color:var(--tx-1)">WinDivert</b> driver — no separate install needed.
+			The game process is identified by its owning PID and ports, so VPNs that change addressing are handled
+			automatically for connection tracking.
+		</p>
+		<p class="set-sub mt-2" style="font-size:10.5px;color:var(--tx-2);line-height:1.5">
+			If you use <b style="color:var(--tx-1)">ExitLag</b> and see no data, enable
+			<b style="color:var(--tx-1)">NDIS Legacy mode</b> in ExitLag's settings. If you don't need a VPN to play,
+			disabling it gives the most reliable capture.
+		</p>
+	</div>
 </Tabs.Content>
