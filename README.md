@@ -1,171 +1,87 @@
-# BP:SR Logs
+<img src="images/demonsoul-meter-icon.png" align="left" width="160" height="160" alt="DemonSoul Logo" style="margin-right: 20px;" />
 
-[![GitHub](https://img.shields.io/github/downloads/saptia14/bpsr-logs-demon-soul/total?style=for-the-badge&color=%23ff9800)](https://github.com/saptia14/bpsr-logs-demon-soul/releases/latest) [![Discord](https://img.shields.io/discord/1417447600608510015?color=%235865F2&label=Discord&style=for-the-badge)](https://discord.gg/Tcc54ST5BU)
+# DemonSoul - ZDPS Meter (BPSR Logs)
 
-[![GitHub](https://img.shields.io/github/v/release/saptia14/bpsr-logs-demon-soul?style=flat-square)](https://github.com/saptia14/bpsr-logs-demon-soul/releases)
-[![GitHub](https://img.shields.io/github/license/saptia14/bpsr-logs-demon-soul?style=flat-square)](https://github.com/saptia14/bpsr-logs-demon-soul/blob/master/LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/saptia14/bpsr-logs-demon-soul?style=flat-square)](https://github.com/saptia14/bpsr-logs-demon-soul/releases)
+[![Discord](https://img.shields.io/discord/1417447600608510015?color=%235865F2&label=Discord&style=flat-square)](https://discord.gg/Tcc54ST5BU)
 
-BPSR Logs is a "blazingly fast" open source Blue Protocol: Star Resonance DPS meter, written in Rust by [winj](https://github.com/winjwinj). It is heavily inspired by [loa-logs](https://github.com/snoww/loa-logs), and uses reverse engineering work done by [StarResonanceDamageCounter](https://github.com/dmlgzs/StarResonanceDamageCounter) and [@Yuerino](https://github.com/Yuerino).
+A beautifully redesigned, "blazingly fast" open-source DPS & HPS meter for Blue Protocol: Star Resonance. 
 
-> **Plug & play:** download the installer, run it, launch the game. No configuration is required — the meter starts capturing automatically and every integration is off/optional by default.
+**Key Features:**
+- 🎨 **Tactical HUD UI Overhaul:** Brand new, sleek interface
+- 🤖 **Discord Webhook:** Automatic DemonSoul encounter reports
+- 📊 **Encounter History:** Local SQLite database for past meters
+- ⚙️ **AutoMod:** Built-in Module Optimizer directly in the app
+- 💬 **Chat Logs:** Guild chat capture & dedupe relay
 
-# Features
+<br clear="left"/>
 
-- **Live DPS & HPS meter** — real-time per-player damage and healing, updated as you fight.
-- **Per-player skill breakdown** — click a player to inspect their skills (crit/lucky rates, hits, DPS).
-- **Boss-only filter, pause/reset, and global hotkeys.**
-- **Built-in Module Optimizer (AutoMod)** — parses your gear modules straight from the game and computes the best 4- or 5-module combinations for the attributes you pick, entirely on your machine. See [Module Optimizer](#module-optimizer-automod).
-- **Optional integrations** — a Discord encounter report and a [bptimer.com](https://bptimer.com) world-boss HP reporter, both **off by default** and toggled in Settings.
+This project is a heavily modified **fork** of the original [winjwinj/bpsr-logs](https://github.com/winjwinj/bpsr-logs), built to add powerful new features and a complete aesthetic overhaul, tailored specifically for the DemonSoul community.
 
-# Download
+> **Plug & Play:** Download the installer from the [Releases page](https://github.com/saptia14/bpsr-logs-demon-soul/releases/latest), run it, and launch the game. No configuration is required.
 
-https://github.com/saptia14/bpsr-logs-demon-soul/releases/latest
+---
 
-\*currently only Windows 7 and up is supported
+## ✨ What's New in this Fork?
 
-# Is it bannable?
+We've completely overhauled the original meter to make it look better and do much more. Here are the major additions:
 
-![validation.png](readme/validation.png)
-![validation_remove_name.png](readme/validation_remove_name.png)
-\*name blocked by their request. You can ping me on the Discord and I can give you the full screenshot.
+- **Full UI Overhaul (Tactical HUD)**: A brand new, sleek, and modern interface. Clean tables, better class colors, and a much more polished experience.
+- **New Cross-Platform Icons**: Custom, high-quality app icons designed for this fork.
+- **DemonSoul Discord Webhook Integration**: A built-in, hardcoded integration that automatically sends encounter reports (including a JSON dump and a screenshot of the meter) straight to the DemonSoul Discord after every fight. 
+- **Encounter History Database**: The app now saves your past encounters into a local SQLite database. You can review your previous damage and healing meters directly in the new History tab!
+- **Built-in Module Optimizer (AutoMod)**: No need for external websites anymore. The app intercepts your gear modules straight from the game and calculates the absolute best 4- or 5-module combinations for you, entirely locally.
+- **Chat History Logging**: A new chat history logger that captures Guild (Union) chat and relays it to Discord via a dedicated DemonSoul dedupe API.
 
-# Does it mine Bitcoin?
+---
 
-No, it doesn’t mine Bitcoin. If it did, I'd be answering this from my private island.
+## 📸 Screenshots
 
-## Serious Answer:
+### Live DPS Meter
+Real-time damage breakdown, complete with critical and lucky hits tracking.
+![DPS Meter](images/dpsmeter-v2.png)
 
-1. Code is open source, you can read it yourself
-1. https://www.reddit.com/r/BlueProtocolPC/comments/1o1hhj9/comment/njcducb/
-1. https://www.reddit.com/r/BlueProtocolPC/comments/1o1hhj9/comment/njn0xr3/
-1. https://www.reddit.com/r/BlueProtocolPC/comments/1o1hhj9/comment/njf92bs/
-1. https://tauri.by.simon.hyll.nu/concepts/security/false_positives/
-   ![false_positive.png](readme/false_positive.png)
+### Live Heal Meter
+Real-time healing breakdown per player and skill.
+![Heal Meter](images/healmeter-v2.png)
 
-## How to fix:
+### Encounter History
+Review your past fights and check your previous meters with the newly integrated local database.
+![Encounter History](images/encounter-history-v2.png)
 
-1. Temporarily Disable Windows Defender
-   1. [windowsdefender://threatsettings/](windowsdefender://threatsettings/)
-   1. [https://support.microsoft.com/en-us/windows/virus-and-threat-protection-in-the-windows-security-app-1362f4cd-d71a-b52a-0b66-c2820032b65e#ID0EFH](https://support.microsoft.com/en-us/windows/virus-and-threat-protection-in-the-windows-security-app-1362f4cd-d71a-b52a-0b66-c2820032b65e#ID0EFH)
-1. Don't use Brave
+### Module Optimizer (AutoMod)
+Find the strongest combination of your gear modules without leaving the app or re-logging.
+![Module Optimizer](images/modules-v2.png)
 
-# Roadmap
+### Chat Logs
+Review in-game chat history and easily share it via the Discord dedupe relay.
+![Chat Logs](images/chatlogs-v2.png)
 
-https://discord.com/channels/1417447600608510015/1417450802561290280
+### Settings
+Easily configure hotkeys, UI transparency, meter rules, and Discord integrations.
+![Settings](images/settings-v2.png)
 
-# Contributing to the Project
+---
 
-1. Framework: [Tauri 2.0](https://v2.tauri.app/start/)
-   1. Frontend: [Svelte 5 / SvelteKit v2](https://svelte.dev/docs/svelte/getting-started)
-   1. Backend: [Rust](https://www.rust-lang.org/learn)
-1. Join the [Discord](https://discord.gg/Tcc54ST5BU)
-   1. Get the Developers role and talk in the [chat](https://discord.com/channels/1417447600608510015/1417458452661407754)
-   1. Ping me on Discord to make sure I'm not already working on the feature
+## 🛠️ FAQ & Help
 
-## Prerequisites
+### Is it bannable?
+It operates in **sniff mode** via the WinDivert driver, meaning it only passively reads TCP traffic. It **does not** inject into the game client or modify any packets. 
 
-1. Some version of [Node.js](https://nodejs.org/en/download/)
-1. tauri & Rust (see [tauri getting started](https://v2.tauri.app/start/prerequisites/))
-1. Clone the repository
-1. Install dependencies
-   ```bash
-   npm install
-   ```
-1. After everything has been installed, you should be able to build the dev version of the meter.
-   ```bash
-   npm run tauri dev
-   ```
-1. For IDE, I use
-   1. Rust: [Jetbrains RustRover](https://www.jetbrains.com/rust/download/?section=windows)
-   1. Svelte: [Visual Studio Code](https://code.visualstudio.com/) w/ [Svelte plugin](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) and lint with [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) (there's a `.code-workspace` committed to the repo)
+### Does it mine Bitcoin?
+No. The code is completely open-source, and you can inspect it yourself. Some antiviruses falsely flag the WinDivert driver. If you encounter issues, try adding an exception for the folder in Windows Defender.
 
-# FAQ
+### Missing `WinDivert64.sys`?
+If your meter isn't picking up the game, your antivirus might have quarantined `WinDivert64.sys`. Add the installation folder to your antivirus exceptions and reinstall the meter.
 
-## Table of Contents
+### How do I use ExitLag?
+ExitLag redirects packets in a way that hides them from WinDivert. Change your ExitLag settings to **Packet redirection method > Legacy - NDIS**.
 
-- [Missing `WinDivert64.sys`](#q-missing-windivert64sys)
-- [Meter isn't detecting anything...](#q-meter-isnt-detecting-anything)
-- [ExitLag? Other ping reducers?](#q-how-do-i-also-use-exitlag-and-other-ping-reducers)
-- [Meter window is missing / meter window is tiny](#q-meter-window-is-missing--meter-window-is-tiny)
-- [The installer crashes or takes forever to install](#q-the-installer-crashes-or-takes-forever-to-install)
-- [EdgeWebview2 Error.](#q-the-meter-crashes-immediately-when-trying-to-open-it-edgewebview2-error)
-- [Meter window lagging](#q-the-meter-window-lags-a-lot-when-dragging-around)
-- [My information is missing!](#q-why-is-some-of-my-information-missing-when-others-have-it)
-- [There are too many/too few columns in the meter.](#q-there-are-too-manytoo-few-columns-in-the-meter)
-- [Help, my issue isn't listed here](#q-help-my-issue-isnt-listed-here-or-youve-tried-all-these-solutions-and-it-still-doesnt-work)
+---
 
-### Q: Missing `WinDivert64.sys`
+## 🤝 Contributing
+- **Framework**: Tauri 2.0 (Rust backend, Svelte 5 / SvelteKit frontend).
+- **Requirements**: Node.js and Rust.
+- Run `npm install` followed by `npm run tauri dev` to get started.
 
-A: You need to reinstall meter. The meter uses the WinDivert driver to listen to game packets. You either removed the file or your antivirus removed it. Please create an exception for the entire meter folder, and then reinstall the meter. After reinstalling, you should restart your computer before launching meter.
-
-### Q: Meter isn't detecting anything...
-
-A: There can be multiple reasons. If you have NordVPN installed, meter will not work due to both apps using WinDivert. You need to uninstall Nord, or completely quit the Nord processes and reboot.
-
-### Q: How do I also use ExitLag (and other ping reducers)?
-
-A: ExitLag recently updated their settings which changed how they redirect packets. Change your ExitLag settings to _Packet redirection method > Legacy - NDIS_.
-
-### Q: Meter window is missing / meter window is tiny
-
-A: TBD: Right-click the taskbar icon (located in the bottom right of your screen, next to the system time), click reset position, or load saved position. Adjust the size of the window and location, and then save the position.
-
-### Q: The installer crashes or takes forever to install
-
-A: Are you trying to install on a custom install folder with different permissions? You might need to run the installer in administrator mode due to permission issues.
-
-### Q: The meter crashes immediately when trying to open it. EdgeWebview2 Error.
-
-A: The meter needs Microsoft Edge Webview2 Runtime to run. Yours is probably missing or out of date. Go uninstall it first (it won't let you install it if you have an older version installed), then download and install from [here](https://go.microsoft.com/fwlink/p/?LinkId=2124703) (https://go.microsoft.com/fwlink/p/?LinkId=2124703).
-
-### Q: The meter window lags a lot when dragging around
-
-A: Are you on Windows 11? Disable blur in the settings (settings > accessibility). If you wish to have a dark background with blur disabled, also disable the transparency setting to have a pseudo dark mode.
-
-### Q: Why is some of my information missing when others have it?
-
-A: You opened the meter too late, and it wasn't able to get your character information. It is doing its best by guessing. You can fix this by: switching lines, moving to a different area, relogging, etc.
-
-### Q: There are too many/too few columns in the meter.
-
-A: TBD: You can change whatever column you want to show in the settings. TIP: you can `SHIFT+SCROLL` to scroll horizontally.
-
-### Q: Help, my issue isn't listed here. Or you've tried all these solutions, and it still doesn't work.
-
-A: Search the message history in the [#i-need-help](https://discord.com/channels/1417447600608510015/1427022345482014900) channel on [Discord](https://discord.gg/Tcc54ST5BU). If you can't find a solution there, please describe your issue.
-
-### Q: Is it really "blazingly fast"?
-
-A: [Yes.](https://i.imgur.com/QsLAntt.png)
-
-# Module Optimizer (AutoMod)
-
-A dedicated **MODULES** tab finds the strongest combination of your gear modules — no website, no second packet sniffer, no re-login. It reads the modules the game already sent, then brute-forces the best 4-module combo (or beam-searches 5-module combos) for the attributes you choose, scoring each combination with the in-game combat-power curve.
-
-- Pick a **category** (Attack / Guard / Support / All), **combo size** (4 or 5), and a **match count**.
-- Click attribute chips to cycle **maximize → exclude → off**.
-- Hit **Optimize** to get ranked builds with the module list and a per-attribute breakdown.
-
-![modules.png](images/modules.png)
-
-# Screenshots
-
-## DPS Meter
-
-![dpsmeter.png](images/dpsmeter.png)
-
-## Settings / Configuration
-
-![config.png](images/config.png)
-
-## In-game Overlay
-
-![in_game_overlay.png](readme/in_game_overlay.png)
-
-## Streamer Mode
-
-![streamer_mode.png](readme/streamer_mode.png)
-
-## Skill Breakdown
-
-![skill_breakdown.png](readme/skill_breakdown.png)
+Join our [Discord](https://discord.gg/Tcc54ST5BU) and grab the Developer role if you'd like to help out!
