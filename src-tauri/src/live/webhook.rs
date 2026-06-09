@@ -3,14 +3,35 @@ use crate::live::opcodes_models::{CombatStats, Encounter};
 use crate::live::player_state::PlayerCacheMutex;
 use crate::utils::sync::MutexExt;
 use log::{error, info};
-use reqwest::multipart;
 use serde::Serialize;
 use serde_json::json;
+use std::sync::LazyLock;
 
-pub type PendingWebhookState = std::sync::Mutex<Option<crate::live::opcodes_models::Encounter>>;
+// DPS encounter reports are routed through the server-side dedupe relay (same
+// host as the guild-chat relay) instead of posting straight to Discord. The
+// relay holds the Discord webhook, renders the graph image from this JSON, and
+// posts exactly once across all party members (see
+// artifacts/DPS-Report-Dedupe-And-Image-Plan.md). The endpoint has a default;
+// the API key is baked in at build time (CI) or supplied via runtime env —
+// absent => the relay is silently disabled. The key is shared with the
+// guild-chat relay (`BPSR_DEDUPE_API_KEY`).
+const DEFAULT_DPS_REPORT_ENDPOINT: &str = "https://bpsr.otterteamstudio.com/api/dps-report/dedupe";
+const COMPILE_TIME_DPS_ENDPOINT: Option<&str> = option_env!("BPSR_DPS_REPORT_ENDPOINT");
+const COMPILE_TIME_DPS_API_KEY: Option<&str> = option_env!("BPSR_DEDUPE_API_KEY");
 
-// URL Hardcodeada solicitada por el usuario (DemonSoul Endpoint)
-const DEMONSOUL_WEBHOOK: &str = "https://discord.com/api/webhooks/1482216285071872121/IYJmTeJ4Cyl8afzs5v5Euhz1X7WNsh5q0o9gV-kB2RfMrJZQh77txzH_Xc85iFQvqEQQ";
+static DPS_REPORT_ENDPOINT: LazyLock<String> = LazyLock::new(|| {
+    std::env::var("BPSR_DPS_REPORT_ENDPOINT")
+        .ok()
+        .or_else(|| COMPILE_TIME_DPS_ENDPOINT.map(String::from))
+        .unwrap_or_else(|| DEFAULT_DPS_REPORT_ENDPOINT.to_string())
+});
+
+static DPS_API_KEY: LazyLock<Option<String>> = LazyLock::new(|| {
+    std::env::var("BPSR_DEDUPE_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+        .or_else(|| COMPILE_TIME_DPS_API_KEY.map(String::from))
+});
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,7 +92,6 @@ pub fn submit_report(
     player_cache_mutex: &PlayerCacheMutex,
     player_state_mutex: &crate::live::player_state::PlayerStateMutex,
     webhook_enabled: &crate::live::webhook_state::WebhookEnabledMutex,
-    image_data: Option<Vec<u8>>,
 ) {
     if !crate::live::webhook_state::is_webhook_enabled(webhook_enabled) {
         info!("Skipping webhook report: webhook disabled in settings");
@@ -108,8 +128,6 @@ pub fn submit_report(
     };
 
     let mut players_data = Vec::new();
-    let mut top_player_name = String::from("Unknown");
-    let mut top_player_dmg = 0;
     let mut reporter_name = format!("Player {}", local_player_uid);
 
     {
@@ -153,11 +171,6 @@ pub fn submit_report(
                 .ability_score
                 .or_else(|| player_cache.get_ability_score(uid))
                 .unwrap_or(-1);
-
-            if entity.dmg_stats.value > top_player_dmg {
-                top_player_dmg = entity.dmg_stats.value;
-                top_player_name = name.clone();
-            }
 
             // Combine DPS and Heal skills
             let mut all_skills: std::collections::HashMap<i32, ZdpsSkillStats> =
@@ -250,90 +263,58 @@ pub fn submit_report(
             total_healing: encounter.heal_stats.value as f64,
             total_hps: encounter.heal_stats.value as f64 / time_elapsed_secs,
             local_player_uid: local_player_uid as f64,
-            reporter_name: reporter_name.clone(),
+            reporter_name,
             level_map_id,
             level_map_name: crate::live::opcodes_models::get_scene_name(level_map_id),
         },
         players: players_data,
     };
 
-    let json_bytes = match serde_json::to_vec_pretty(&encounter_data) {
-        Ok(b) => b,
+    // Idempotency key: deterministic across every party member reporting the
+    // same fight. The UID sum is commutative (order-independent), so each
+    // client computes the same key regardless of iteration order, and the
+    // server posts exactly one copy. `mapId` keeps different zones distinct.
+    // See artifacts/DPS-Report-Dedupe-And-Image-Plan.md §4.3.
+    let uid_sum: i64 = encounter_data.players.iter().map(|p| p.uid as i64).sum();
+    let idempotency_key = format!("dps:{level_map_id}:{uid_sum}");
+
+    let Some(api_key) = DPS_API_KEY.clone() else {
+        info!("Skipping DPS report: relay API key not configured in this build");
+        return;
+    };
+    let endpoint = DPS_REPORT_ENDPOINT.clone();
+
+    let encounter_value = match serde_json::to_value(&encounter_data) {
+        Ok(v) => v,
         Err(e) => {
-            error!("Failed to serialize zdps_data.json: {}", e);
+            error!("Failed to serialize encounter for DPS report: {}", e);
             return;
         }
     };
-
-    let pretty_dps = format!(
-        "{:.2}M",
-        (encounter.dmg_stats.value as f64 / time_elapsed_secs) / 1_000_000.0
-    );
-    let pretty_total = format!("{:.2}M", encounter.dmg_stats.value as f64 / 1_000_000.0);
-    let pretty_hps = format!(
-        "{:.2}K",
-        (encounter.heal_stats.value as f64 / time_elapsed_secs) / 1_000.0
-    );
-    let pretty_healing = format!("{:.2}M", encounter.heal_stats.value as f64 / 1_000_000.0);
-
-    let embed = json!({
-        "embeds": [{
-            "title": "DemonSoul - ZDPS Meter Report",
-            "color": 0x9000ff,
-            "description": "Combat encounter ended. Raw JSON data attached.",
-            "fields": [
-                 { "name": "Duration", "value": format!("{}s", time_elapsed_secs as i64), "inline": true },
-                 { "name": "Total DPS", "value": pretty_dps, "inline": true },
-                 { "name": "Total Damage", "value": pretty_total, "inline": true },
-                 { "name": "Total HPS", "value": pretty_hps, "inline": true },
-                 { "name": "Total Healing", "value": pretty_healing, "inline": true },
-                 { "name": "Top Player", "value": top_player_name, "inline": false },
-                 { "name": "Reporter", "value": reporter_name, "inline": true },
-                 { "name": "Instance Map", "value": crate::live::opcodes_models::get_scene_name(level_map_id), "inline": true }
-            ],
-            "footer": { "text": "Powered by BPSR Rust Backend" },
-            "timestamp": chrono::Utc::now().to_rfc3339()
-        }]
+    let body = json!({
+        "idempotencyKey": idempotency_key,
+        "encounter": encounter_value,
     });
 
-    let embed_json = embed.to_string();
-
+    // Fire-and-forget: the relay dedupes across users, renders the graph image,
+    // and posts to Discord once. Status is only logged locally.
     tauri::async_runtime::spawn(async move {
-        let part_json = multipart::Part::bytes(json_bytes)
-            .file_name("zdps_data.json")
-            .mime_str("application/json")
-            .unwrap();
-
-        let part_embed = multipart::Part::text(embed_json)
-            .mime_str("application/json")
-            .unwrap();
-
-        let mut form = multipart::Form::new()
-            .part("files[0]", part_json)
-            .part("payload_json", part_embed);
-
-        if let Some(img_bytes) = image_data {
-            let part_img = multipart::Part::bytes(img_bytes)
-                .file_name("screenshot.png")
-                .mime_str("image/png")
-                .unwrap();
-            form = form.part("files[1]", part_img);
-        }
-
         let client = reqwest::Client::new();
-        match client.post(DEMONSOUL_WEBHOOK).multipart(form).send().await {
+        match client
+            .post(&endpoint)
+            .header("X-API-Key", api_key)
+            .json(&body)
+            .send()
+            .await
+        {
+            Ok(response) if response.status().is_success() => {
+                info!("Submitted DPS report to dedupe relay");
+            }
             Ok(response) => {
-                if response.status().is_success() {
-                    info!("Successfully submitted report to DemonSoul webhook");
-                } else {
-                    error!(
-                        "Failed to submit webhook report. Status: {}",
-                        response.status()
-                    );
-                }
+                error!("DPS report relay returned HTTP {}", response.status());
             }
             Err(e) => {
-                error!("Error sending webhook POST request: {}", e);
+                error!("DPS report relay request error: {}", e);
             }
         }
     });

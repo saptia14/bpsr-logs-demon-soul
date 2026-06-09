@@ -59,8 +59,6 @@ pub fn run() {
             live::commands::get_dps_boss_only_skill_window,
             live::commands::get_heal_player_window,
             live::commands::get_heal_skill_window,
-            live::commands::submit_pending_webhook,
-            live::commands::reset_encounter_with_image,
             live::commands::reset_encounter,
             live::commands::toggle_pause_encounter,
             live::commands::hard_reset,
@@ -146,7 +144,6 @@ pub fn run() {
             app.manage(EncounterMutex::default()); // setup encounter state
             app.manage(PlayerStateMutex::default()); // setup player state
             app.manage(PlayerCacheMutex::default()); // setup player cache
-            app.manage(crate::live::webhook::PendingWebhookState::new(None)); // pending webhook buffer
             app.manage(crate::live::module_optimizer::ModulesMutex::default()); // persistent parsed gear modules
             app.manage(crate::live::chat::ChatStoreMutex::default()); // in-memory chat log
             // Guild chat dedupe relay: ON by default (only relays Union text and

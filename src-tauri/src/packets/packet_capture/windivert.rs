@@ -134,8 +134,9 @@ async fn read_packets(
                                                     &mut known_server,
                                                     &mut game_subnet,
                                                     &mut tcp_reassembler,
-                                                    tcp_packet.sequence_number() as usize
-                                                        + tcp_payload_reader.len(),
+                                                    tcp_packet.sequence_number().wrapping_add(
+                                                        tcp_payload_reader.len() as u32,
+                                                    ),
                                                     &mut subnet_reassemblers,
                                                 );
                                                 send_server_change_info(packet_sender);
@@ -180,7 +181,7 @@ async fn read_packets(
                         &mut known_server,
                         &mut game_subnet,
                         &mut tcp_reassembler,
-                        tcp_packet.sequence_number() as usize + tcp_payload.len(),
+                        tcp_packet.sequence_number().wrapping_add(tcp_payload.len() as u32),
                         &mut subnet_reassemblers,
                     );
                     send_server_change_info(packet_sender);
@@ -244,7 +245,7 @@ fn update_known_server(
     known_server: &mut Option<Server>,
     game_subnet: &mut Option<[u8; 2]>,
     reassembler: &mut TCPReassembler,
-    seq: usize,
+    seq: u32,
     subnet_reassemblers: &mut HashMap<Server, TCPReassembler>,
 ) {
     *known_server = Some(*server);
@@ -267,47 +268,54 @@ fn reassemble_and_process(
     packet_sender: &tokio::sync::mpsc::Sender<(Pkt, Vec<u8>)>,
     clear_on_malformed: bool,
 ) {
+    // A genuinely lost TCP segment (dropped by the sniffer and never seen as a
+    // retransmission) leaves a permanent hole that the in-order drain can never
+    // cross, so the cache would grow without bound and the stream would stall.
+    // If we ever buffer this many out-of-order segments, give up on the hole
+    // and resync to the earliest buffered segment (lose one gap, keep the flow).
+    const MAX_CACHE_SEGMENTS: usize = 2048;
+
     if tcp_packet.payload().is_empty() {
         return;
     }
+    // 32-bit TCP sequence number — all comparisons below are mod 2^32.
+    let seq = tcp_packet.sequence_number();
     if reassembler.next_seq.is_none() {
-        reassembler.next_seq = Some(tcp_packet.sequence_number() as usize);
+        reassembler.next_seq = Some(seq);
     }
-    if reassembler
-        .next_seq
-        .unwrap()
-        .saturating_sub(tcp_packet.sequence_number() as usize)
-        == 0
-    {
-        reassembler.cache.insert(
-            tcp_packet.sequence_number() as usize,
-            Vec::from(tcp_packet.payload()),
-        );
+    // Cache the segment unless it lies entirely *before* next_seq (an old
+    // duplicate/retransmit of data we already consumed). RFC 1982 serial
+    // comparison: `seq` is at-or-after `next_seq` iff (seq - next_seq) as i32 >= 0.
+    let next = reassembler.next_seq.unwrap();
+    if (seq.wrapping_sub(next) as i32) >= 0 {
+        reassembler
+            .cache
+            .insert(seq, Vec::from(tcp_packet.payload()));
     }
-    let mut i = 0;
-    while reassembler
-        .cache
-        .contains_key(&reassembler.next_seq.unwrap())
-    {
-        i += 1;
-        if i % 1000 == 0 {
-            warn!(
-                "Potential infinite loop in cache processing: iteration={i}, next_seq={:?}, cache_size={}, _data_len={}",
-                reassembler.next_seq,
-                reassembler.cache.len(),
-                reassembler._data.len()
-            );
-        }
-        let seq = &reassembler.next_seq.unwrap();
-        let cached_tcp_data = reassembler.cache.get(seq).unwrap();
+
+    // Drain contiguous segments starting at next_seq. `remove` both reads and
+    // pops, so this loop is bounded by the cache size and cannot spin forever.
+    while let Some(cached_tcp_data) = reassembler.cache.remove(&reassembler.next_seq.unwrap()) {
+        let advance = cached_tcp_data.len() as u32;
         if reassembler._data.is_empty() {
-            reassembler._data = cached_tcp_data.clone();
+            reassembler._data = cached_tcp_data;
         } else {
-            reassembler._data.extend_from_slice(cached_tcp_data);
+            reassembler._data.extend_from_slice(&cached_tcp_data);
         }
-        reassembler.next_seq = Some(seq.wrapping_add(cached_tcp_data.len()));
-        reassembler.cache.remove(seq);
+        reassembler.next_seq = Some(reassembler.next_seq.unwrap().wrapping_add(advance));
     }
+
+    // Self-heal a stuck hole rather than leaking memory / stalling forever.
+    if reassembler.cache.len() > MAX_CACHE_SEGMENTS {
+        if let Some((&earliest, _)) = reassembler.cache.iter().next() {
+            warn!(
+                "TCP reassembler resync: {} segments buffered behind a gap, skipping to seq {earliest}",
+                reassembler.cache.len()
+            );
+            reassembler.next_seq = Some(earliest);
+        }
+    }
+
     while reassembler._data.len() > 4 {
         let packet_size = match BinaryReader::from(reassembler._data.clone()).read_u32() {
             Ok(sz) => sz,

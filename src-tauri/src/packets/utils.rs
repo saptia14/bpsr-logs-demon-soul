@@ -52,8 +52,13 @@ fn ip_to_str(ip: &[u8; 4]) -> String {
 }
 
 pub struct TCPReassembler {
-    pub cache: BTreeMap<usize, Vec<u8>>, // sequence -> payload
-    pub next_seq: Option<usize>,         // next expected sequence
+    // Keyed by the raw 32-bit TCP sequence number. All sequence arithmetic must
+    // be done mod 2^32 (these are u32, not usize) so it survives the wraparound
+    // that happens once a connection's sequence counter crosses 2^32 — storing
+    // them as usize and using usize::wrapping_add wraps at 2^64 instead, which
+    // permanently wedged the stream after a while (random ISN => random time).
+    pub cache: BTreeMap<u32, Vec<u8>>, // sequence -> payload
+    pub next_seq: Option<u32>,         // next expected sequence
     pub _data: Vec<u8>,
 }
 
@@ -66,7 +71,7 @@ impl TCPReassembler {
         }
     }
 
-    pub fn clear_reassembler(&mut self, seq_number: usize) {
+    pub fn clear_reassembler(&mut self, seq_number: u32) {
         self.cache = BTreeMap::new();
         self._data.clear();
         self.next_seq = Some(seq_number);

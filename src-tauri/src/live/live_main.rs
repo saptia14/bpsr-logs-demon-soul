@@ -41,24 +41,12 @@ pub async fn start(app_handle: AppHandle) {
             packets::opcodes::Pkt::ServerChangeInfo => {
                 let encounter_state = app_handle.state::<EncounterMutex>();
                 let mut encounter_state = encounter_state.lock_safe();
-                let pending_webhook_state =
-                    app_handle.state::<crate::live::webhook::PendingWebhookState>();
-
-                // Disparar reporte automáticamente guardando en caché y pidiendo captura UI
-                {
-                    let mut pending = pending_webhook_state.lock_safe();
-                    *pending = Some(encounter_state.clone());
-                }
-
-                if let Err(e) = tauri::Emitter::emit(&app_handle, "request-screenshot", ()) {
-                    log::warn!("Failed to request screenshot from frontend: {}", e);
-                }
+                let player_cache = app_handle.state::<PlayerCacheMutex>();
+                let player_state = app_handle.state::<PlayerStateMutex>();
 
                 // Persist the finished encounter to history before it is reset.
                 {
                     let db = app_handle.state::<crate::live::database::DatabaseMutex>();
-                    let player_cache = app_handle.state::<PlayerCacheMutex>();
-                    let player_state = app_handle.state::<PlayerStateMutex>();
                     crate::live::database::save_encounter(
                         &db,
                         &encounter_state,
@@ -66,6 +54,18 @@ pub async fn start(app_handle: AppHandle) {
                         &player_state.lock_safe(),
                     );
                 }
+
+                // Report the finished encounter to the dedupe relay (no
+                // screenshot — the server renders the graph image from the
+                // JSON). Fire-and-forget; gated by the webhook toggle inside.
+                let webhook_state =
+                    app_handle.state::<crate::live::webhook_state::WebhookEnabledMutex>();
+                crate::live::webhook::submit_report(
+                    &encounter_state,
+                    &player_cache,
+                    &player_state,
+                    &webhook_state,
+                );
 
                 on_server_change(&mut encounter_state);
             }

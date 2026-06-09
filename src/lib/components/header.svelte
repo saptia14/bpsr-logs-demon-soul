@@ -13,8 +13,7 @@
 
 	import { onMount, tick } from 'svelte';
 	import { commands, type HeaderInfo } from '$lib/bindings';
-	import { takeScreenshot, tooltip, getScreenshotBytes } from '$lib/utils.svelte';
-	import { listen } from '@tauri-apps/api/event';
+	import { takeScreenshot, tooltip } from '$lib/utils.svelte';
 	import AbbreviatedNumber from '$lib/components/abbreviated-number.svelte';
 	import { SETTINGS } from '$lib/settings-store';
 	import { goto } from '$app/navigation';
@@ -24,16 +23,8 @@
 		fetchData();
 		const interval = setInterval(fetchData, 200);
 
-		const unlistenPromise = listen('request-screenshot', async () => {
-			const bytes = await getScreenshotBytes(screenshotDiv);
-			if (bytes) {
-				await commands.submitPendingWebhook(Array.from(bytes));
-			}
-		});
-
 		return () => {
 			clearInterval(interval);
-			unlistenPromise.then((unlisten) => unlisten());
 		};
 	});
 
@@ -45,12 +36,9 @@
 				headerInfo.timeLastCombatPacketMs > 0 &&
 				Date.now() - headerInfo.timeLastCombatPacketMs > SETTINGS.general.state.resetElapsed * 1000
 			) {
-				const bytes = await getScreenshotBytes(screenshotDiv);
-				if (bytes) {
-					await commands.resetEncounterWithImage(Array.from(bytes));
-				} else {
-					await commands.resetEncounter();
-				}
+				// Encounter ended by inactivity: report (the server renders the
+				// image from the data) and reset. No client screenshot.
+				await commands.resetEncounter();
 				headerInfo = await commands.getHeaderInfo();
 			}
 		} catch (e) {
@@ -147,13 +135,7 @@
 		<button
 			class="hud-tool"
 			onclick={async () => {
-				await tick();
-				const bytes = await getScreenshotBytes(screenshotDiv);
-				if (bytes) {
-					await commands.resetEncounterWithImage(Array.from(bytes));
-				} else {
-					await commands.resetEncounter();
-				}
+				await commands.resetEncounter();
 				headerInfo = await commands.getHeaderInfo();
 			}}
 			{@attach tooltip(() => 'Reset Encounter')}

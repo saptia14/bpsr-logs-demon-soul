@@ -70,63 +70,11 @@ pub fn hard_reset(
         &player_cache_state,
         &player_state,
         &webhook_state,
-        None,
     );
 
     encounter.clone_from(&Encounter::default());
     request_restart();
     info!("Hard Reset");
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn submit_pending_webhook(
-    pending_state: tauri::State<'_, crate::live::webhook::PendingWebhookState>,
-    player_cache_state: tauri::State<'_, PlayerCacheMutex>,
-    player_state: tauri::State<'_, crate::live::player_state::PlayerStateMutex>,
-    webhook_state: tauri::State<'_, crate::live::webhook_state::WebhookEnabledMutex>,
-    image: Vec<u8>,
-) {
-    let mut pending = pending_state.lock_safe();
-    if let Some(encounter) = pending.take() {
-        crate::live::webhook::submit_report(
-            &encounter,
-            &player_cache_state,
-            &player_state,
-            &webhook_state,
-            Some(image),
-        );
-    }
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn reset_encounter_with_image(
-    state: tauri::State<'_, EncounterMutex>,
-    player_cache_state: tauri::State<'_, PlayerCacheMutex>,
-    player_state: tauri::State<'_, crate::live::player_state::PlayerStateMutex>,
-    webhook_state: tauri::State<'_, crate::live::webhook_state::WebhookEnabledMutex>,
-    db: tauri::State<'_, DatabaseMutex>,
-    image: Vec<u8>,
-) {
-    let mut encounter = state.lock_safe();
-
-    database::save_encounter(
-        &db,
-        &encounter,
-        &player_cache_state.lock_safe(),
-        &player_state.lock_safe(),
-    );
-    crate::live::webhook::submit_report(
-        &encounter,
-        &player_cache_state,
-        &player_state,
-        &webhook_state,
-        Some(image),
-    );
-
-    encounter.clone_from(&Encounter::default());
-    info!("encounter reset with image");
 }
 
 #[tauri::command]
@@ -151,7 +99,6 @@ pub fn reset_encounter(
         &player_cache_state,
         &player_state,
         &webhook_state,
-        None,
     );
 
     encounter.clone_from(&Encounter::default());

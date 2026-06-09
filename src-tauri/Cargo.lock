@@ -439,7 +439,7 @@ dependencies = [
 
 [[package]]
 name = "bpsr-logs"
-version = "0.26.0"
+version = "0.28.0"
 dependencies = [
  "byteorder",
  "bytes",
